@@ -3,637 +3,740 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>World Oil & Gas Facilities Map</title>
+<title>Global Oil & Gas Infrastructure Atlas — World Map</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #e0e0e0; }
-  #map { width: 100vw; height: 100vh; }
-
-  /* Pulsing marker animation */
-  @keyframes pulse {
-    0% { transform: scale(1); opacity: 0.9; }
-    50% { transform: scale(1.15); opacity: 0.6; }
-    100% { transform: scale(1); opacity: 0.9; }
-  }
-  .pulse-marker {
-    animation: pulse 2.5s ease-in-out infinite;
-    border-radius: 50%;
-  }
-  .pulse-marker.oil {
-    background: radial-gradient(circle, #ff6b00, #cc3300);
-    border: 2px solid #ff9944;
-    box-shadow: 0 0 12px rgba(255, 107, 0, 0.6);
-  }
-  .pulse-marker.gas {
-    background: radial-gradient(circle, #00aaff, #0055cc);
-    border: 2px solid #44ccff;
-    box-shadow: 0 0 12px rgba(0, 170, 255, 0.6);
-  }
-
-  /* Animated route dashes */
-  @keyframes dash-flow {
-    to { stroke-dashoffset: -30; }
-  }
-  .animated-route {
-    animation: dash-flow 1.5s linear infinite;
-  }
-
-  /* Info panel */
-  #info-panel {
-    position: absolute; top: 10px; right: 10px; z-index: 1000;
-    background: rgba(10, 10, 20, 0.92); border: 1px solid #333;
-    border-radius: 10px; padding: 16px 20px; width: 300px;
-    backdrop-filter: blur(8px); max-height: calc(100vh - 20px); overflow-y: auto;
-  }
-  #info-panel h2 { font-size: 16px; margin-bottom: 10px; color: #fff; }
-  #info-panel .stat { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #222; font-size: 13px; }
-  #info-panel .stat-label { color: #888; }
-  #info-panel .stat-value { color: #fff; font-weight: 600; }
-  #info-panel .stat-value.oil { color: #ff6b00; }
-  #info-panel .stat-value.gas { color: #00aaff; }
-
-  /* Legend */
-  #legend {
-    position: absolute; bottom: 30px; left: 10px; z-index: 1000;
-    background: rgba(10, 10, 20, 0.92); border: 1px solid #333;
-    border-radius: 10px; padding: 14px 18px;
-    backdrop-filter: blur(8px);
-  }
-  #legend h3 { font-size: 13px; margin-bottom: 8px; color: #fff; }
-  .legend-item { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12px; }
-  .legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-  .legend-dot.oil { background: radial-gradient(circle, #ff6b00, #cc3300); border: 1px solid #ff9944; }
-  .legend-dot.gas { background: radial-gradient(circle, #00aaff, #0055cc); border: 1px solid #44ccff; }
-  .legend-line { width: 30px; height: 3px; flex-shrink: 0; }
-  .legend-line.shipping { background: repeating-linear-gradient(90deg, #ffcc00 0 6px, transparent 6px 12px); }
-  .legend-line.pipeline { background: repeating-linear-gradient(90deg, #00ff88 0 6px, transparent 6px 12px); }
-  .legend-size { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
-  .legend-size-dot { border-radius: 50%; border: 1px solid #888; background: rgba(255,255,255,0.15); }
-
-  /* Title */
-  #title-bar {
-    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000;
-    background: rgba(10, 10, 20, 0.92); border: 1px solid #333;
-    border-radius: 10px; padding: 10px 24px; text-align: center;
-    backdrop-filter: blur(8px);
-  }
-  #title-bar h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
-  #title-bar p { font-size: 11px; color: #888; margin-top: 2px; }
-
-  /* Filter buttons */
-  #filters {
-    position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000;
-    display: flex; gap: 8px;
-  }
-  .filter-btn {
-    background: rgba(10, 10, 20, 0.85); border: 1px solid #444; color: #ccc;
-    padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 12px;
-    transition: all 0.2s;
-  }
-  .filter-btn:hover { border-color: #888; color: #fff; }
-  .filter-btn.active { border-color: #fff; color: #fff; background: rgba(255,255,255,0.1); }
-  .filter-btn.active.oil-btn { border-color: #ff6b00; color: #ff6b00; }
-  .filter-btn.active.gas-btn { border-color: #00aaff; color: #00aaff; }
-
-  /* Popup custom style */
-  .leaflet-popup-content-wrapper {
-    background: rgba(15, 15, 25, 0.95) !important;
-    color: #e0e0e0 !important;
-    border: 1px solid #444 !important;
-    border-radius: 8px !important;
-    backdrop-filter: blur(8px);
-  }
-  .leaflet-popup-tip { background: rgba(15, 15, 25, 0.95) !important; }
-  .leaflet-popup-content { margin: 10px 14px !important; font-size: 13px !important; }
-  .popup-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-  .popup-title.oil { color: #ff6b00; }
-  .popup-title.gas { color: #00aaff; }
-  .popup-row { display: flex; justify-content: space-between; padding: 3px 0; }
-  .popup-label { color: #888; }
-  .popup-value { font-weight: 600; }
-  .popup-divider { border-top: 1px solid #333; margin: 6px 0; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0a0a0a;color:#e0e0e0}
+  #map{width:100vw;height:100vh}
+  @keyframes pulse{0%{transform:scale(1);opacity:.9}50%{transform:scale(1.2);opacity:.55}100%{transform:scale(1);opacity:.9}}
+  .pm{border-radius:50%;cursor:pointer}.pm.a{animation:pulse 2.5s ease-in-out infinite}
+  .pm.oil{background:radial-gradient(circle,#ff6b00,#cc3300);border:2px solid #ff9944;box-shadow:0 0 10px rgba(255,107,0,.5)}
+  .pm.gas{background:radial-gradient(circle,#00aaff,#0055cc);border:2px solid #44ccff;box-shadow:0 0 10px rgba(0,170,255,.5)}
+  .pm.mix{background:radial-gradient(circle,#aa44ff,#6600aa);border:2px solid #cc77ff;box-shadow:0 0 10px rgba(170,68,255,.5)}
+  .pm.lng{background:radial-gradient(circle,#00cc66,#008844);border:2px solid #44ee88;box-shadow:0 0 10px rgba(0,204,102,.5)}
+  .pm.lngi{background:radial-gradient(circle,#00cc66,#006633);border:2px solid #44ee88;box-shadow:0 0 8px rgba(0,204,102,.3)}
+  .pm.shale{background:radial-gradient(circle,#cc8833,#885500);border:2px solid #ddaa44;box-shadow:0 0 10px rgba(204,136,51,.5)}
+  .pm.heavy{background:radial-gradient(circle,#993333,#550000);border:2px solid #cc4444;box-shadow:0 0 10px rgba(153,51,51,.5)}
+  .pm.sands{background:radial-gradient(circle,#996633,#663300);border:2px solid #cc9944;box-shadow:0 0 10px rgba(153,102,51,.5)}
+  .pm.csg{background:radial-gradient(circle,#cc8833,#886622);border:2px solid #ddaa44;box-shadow:0 0 10px rgba(204,136,51,.4)}
+  .pm.hub{background:radial-gradient(circle,#ffcc00,#cc9900);border:2px solid #ffdd44;box-shadow:0 0 12px rgba(255,204,0,.5)}
+  .pm.choke{background:radial-gradient(circle,#ffcc00,#cc9900);border:2px solid #ffdd44;box-shadow:0 0 12px rgba(255,204,0,.5)}
+  .pnl{position:absolute;z-index:1000;background:rgba(10,10,20,.93);border:1px solid #333;border-radius:10px;padding:14px 18px;backdrop-filter:blur(8px)}
+  #ttl{top:10px;left:50%;transform:translateX(-50%);text-align:center}
+  #ttl h1{font-size:17px;color:#fff}#ttl p{font-size:11px;color:#888;margin-top:2px}
+  #info{top:10px;right:10px;width:280px;max-height:calc(100vh - 20px);overflow-y:auto}
+  #info h2{font-size:14px;margin-bottom:8px;color:#fff}
+  .st{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1a1a2a;font-size:12px}
+  .sl{color:#888}.sv{color:#fff;font-weight:600}
+  #lgd{bottom:30px;left:10px}#lgd h3{font-size:12px;margin-bottom:6px;color:#fff}
+  .li{display:flex;align-items:center;gap:7px;margin:4px 0;font-size:11px}
+  .ld{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .ll{width:28px;height:3px;flex-shrink:0;border-radius:1px}
+  #flt{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:5px;flex-wrap:wrap;justify-content:center;max-width:90vw}
+  .fb{background:rgba(10,10,20,.85);border:1px solid #444;color:#ccc;padding:4px 12px;border-radius:18px;cursor:pointer;font-size:11px;transition:all .2s;white-space:nowrap}
+  .fb:hover{border-color:#888;color:#fff}.fb.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.1)}
+  .fb.rg{border-color:#555;color:#999}.fb.rg.on{border-color:#d4a035;color:#d4a035;background:rgba(212,160,53,.1)}
+  .sb{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+  .s-a{background:rgba(0,200,80,.2);color:#00cc55;border:1px solid #00cc55}
+  .s-d{background:rgba(255,50,50,.2);color:#ff4444;border:1px solid #ff4444}
+  .s-s{background:rgba(150,150,150,.2);color:#999;border:1px solid #666}
+  .s-l{background:rgba(255,170,0,.2);color:#ffaa00;border:1px solid #ffaa00}
+  .s-p{background:rgba(100,100,200,.2);color:#8888cc;border:1px solid #8888cc}
+  .s-v{background:rgba(0,170,255,.2);color:#00aaff;border:1px solid #00aaff}
+  .leaflet-popup-content-wrapper{background:rgba(12,12,25,.96)!important;color:#e0e0e0!important;border:1px solid #444!important;border-radius:8px!important}
+  .leaflet-popup-tip{background:rgba(12,12,25,.96)!important}
+  .leaflet-popup-content{margin:10px 14px!important;font-size:12px!important;line-height:1.5!important}
+  .pt{font-size:14px;font-weight:700;margin-bottom:5px}
+  .pr{display:flex;justify-content:space-between;padding:2px 0;gap:10px}
+  .pl{color:#888;flex-shrink:0}.pv{font-weight:600;text-align:right}
+  .pd{border-top:1px solid #333;margin:5px 0}
+  .pn{font-size:11px;color:#aaa;margin-top:4px;line-height:1.4}
+  #info::-webkit-scrollbar{width:4px}#info::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
+  .pipe-tt{background:rgba(10,10,25,.94)!important;border:1px solid #555!important;border-radius:6px!important;padding:6px 10px!important;font-size:11px!important;line-height:1.4!important;max-width:280px!important;color:#e0e0e0!important;box-shadow:0 4px 12px rgba(0,0,0,.5)!important}
+  .pipe-tt .leaflet-tooltip-arrow{display:none}
+  .home-btn{position:absolute;top:10px;left:10px;z-index:1000;background:rgba(10,10,20,.85);border:1px solid #444;color:#ccc;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;text-decoration:none;transition:all .2s}
+  .home-btn:hover{border-color:#fff;color:#fff}
 </style>
 </head>
 <body>
-
 <div id="map"></div>
-
-<div id="title-bar">
-  <h1>World's Largest Oil & Gas Facilities</h1>
-  <p>Production data & estimated reserves | Interactive map</p>
+<a class="home-btn" href="index.html">&larr; Atlas Home</a>
+<div class="pnl" id="ttl"><h1>Global Oil & Gas Infrastructure Atlas</h1><p>All pipelines, fields, LNG terminals worldwide | April 2026</p></div>
+<div id="flt">
+  <button class="fb on" onclick="sf('all',this)">All</button>
+  <button class="fb" onclick="sf('pipes',this)">Pipelines</button>
+  <button class="fb" onclick="sf('fields',this)">Fields</button>
+  <button class="fb" onclick="sf('lng',this)">LNG</button>
+  <span style="width:8px"></span>
+  <button class="fb rg" onclick="zr('Europe',this)">Europe</button>
+  <button class="fb rg" onclick="zr('Asia',this)">Asia</button>
+  <button class="fb rg" onclick="zr('N.America',this)">N. America</button>
+  <button class="fb rg" onclick="zr('S.America',this)">S. America</button>
+  <button class="fb rg" onclick="zr('Africa',this)">Africa</button>
+  <button class="fb rg" onclick="zr('Oceania',this)">Oceania</button>
 </div>
-
-<div id="filters">
-  <button class="filter-btn active" onclick="toggleFilter('all', this)">All</button>
-  <button class="filter-btn oil-btn" onclick="toggleFilter('oil', this)">Oil Fields</button>
-  <button class="filter-btn gas-btn" onclick="toggleFilter('gas', this)">Gas Fields</button>
-  <button class="filter-btn" onclick="toggleFilter('routes', this)">Routes</button>
-</div>
-
-<div id="info-panel">
+<div class="pnl" id="info">
   <h2>Global Overview</h2>
-  <div class="stat">
-    <span class="stat-label">Oil Fields Shown</span>
-    <span class="stat-value oil" id="oil-count">12</span>
-  </div>
-  <div class="stat">
-    <span class="stat-label">Gas Fields Shown</span>
-    <span class="stat-value gas" id="gas-count">10</span>
-  </div>
-  <div class="stat">
-    <span class="stat-label">Total Oil Production</span>
-    <span class="stat-value oil" id="oil-prod">~21.5 M bbl/day</span>
-  </div>
-  <div class="stat">
-    <span class="stat-label">Total Gas Production</span>
-    <span class="stat-value gas" id="gas-prod">~73 Bcf/day</span>
-  </div>
-  <div class="stat">
-    <span class="stat-label">Est. Oil Reserves</span>
-    <span class="stat-value oil">~530 B barrels</span>
-  </div>
-  <div class="stat">
-    <span class="stat-label">Est. Gas Reserves</span>
-    <span class="stat-value gas">~5,800 Tcf</span>
-  </div>
-  <div style="margin-top: 14px;">
-    <h2>Selected Facility</h2>
-    <div id="selected-info" style="font-size: 12px; color: #666; padding: 8px 0;">Click a marker to see details</div>
-  </div>
+  <div class="st"><span class="sl">Pipelines</span><span class="sv" style="color:#00aaff">120+</span></div>
+  <div class="st"><span class="sl">Fields & Basins</span><span class="sv" style="color:#ff6b00">140+</span></div>
+  <div class="st"><span class="sl">LNG Terminals</span><span class="sv" style="color:#00cc66">110+</span></div>
+  <div class="st"><span class="sl">Continents</span><span class="sv" style="color:#aa44ff">6</span></div>
+  <div style="margin-top:12px"><h2>Selected</h2><div id="sel" style="font-size:11px;color:#666;padding:6px 0">Click any element for details</div></div>
 </div>
-
-<div id="legend">
+<div class="pnl" id="lgd">
   <h3>Legend</h3>
-  <div class="legend-item"><div class="legend-dot oil"></div> Oil Field</div>
-  <div class="legend-item"><div class="legend-dot gas"></div> Gas Field</div>
-  <div class="legend-item"><div class="legend-line shipping"></div> Shipping Lane</div>
-  <div class="legend-item"><div class="legend-line pipeline"></div> Pipeline Route</div>
-  <div style="margin-top: 8px; font-size: 11px; color: #888;">Marker size = production volume</div>
-  <div class="legend-size">
-    <div class="legend-size-dot" style="width:12px;height:12px;"></div><span style="font-size:11px;">Small</span>
-    <div class="legend-size-dot" style="width:20px;height:20px;"></div><span style="font-size:11px;">Medium</span>
-    <div class="legend-size-dot" style="width:30px;height:30px;"></div><span style="font-size:11px;">Large</span>
-  </div>
+  <div class="li"><div class="ll" style="background:#00aaff"></div> Gas Pipeline</div>
+  <div class="li"><div class="ll" style="background:#ff6b00"></div> Oil Pipeline</div>
+  <div class="li"><div class="ll" style="background:#8888cc;height:1px;border:1px dashed #8888cc"></div> Proposed</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ff6b00,#cc3300);border:1px solid #ff9944"></div> Oil Field</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00aaff,#0055cc);border:1px solid #44ccff"></div> Gas Field</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#aa44ff,#6600aa);border:1px solid #cc77ff"></div> Oil+Gas</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#008844);border:1px solid #44ee88"></div> LNG Terminal</div>
 </div>
 
 <script>
-// Initialize map with dark theme
-const map = L.map('map', {
-  center: [25, 40],
-  zoom: 3,
-  minZoom: 2,
-  maxZoom: 8,
-  zoomControl: false
+const map=L.map('map',{center:[20,15],zoom:3,minZoom:2,maxZoom:10,zoomControl:false});
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OSM &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+
+let curRegion=null;
+const regionViews={Europe:[50,15,4],Asia:[30,65,4],"N.America":[42,-95,4],"S.America":[-15,-58,4],Africa:[5,20,4],Oceania:[-22,135,4]};
+
+// ===== ALL PIPELINES =====
+// Europe uses different property names - we normalize in rendering
+const euGP=[{ name:"Nord Stream 1", status:"damaged", capacity:"55 bcm/yr", length:"1,224 km", detail:"Sabotaged Sep 2022. Three of four lines ruptured. Not repaired.", year:2011,
+    coords:[[60.71,28.75],[59.85,26.50],[59.60,24.00],[59.20,22.50],[58.50,19.80],[57.50,19.50],[56.80,18.50],[55.53,15.72],[55.10,15.00],[54.30,13.80],[54.14,13.67]],
+    countries:"Russia, Finland (EEZ), Sweden (EEZ), Denmark (EEZ), Germany" },
+  { name:"Nord Stream 2", status:"damaged", capacity:"55 bcm/yr", length:"1,234 km", detail:"Completed 2021 but never certified. Sabotaged Sep 2022.", year:null,
+    coords:[[59.68,28.40],[59.70,26.00],[59.50,23.50],[58.20,19.70],[57.30,19.40],[55.50,15.60],[54.80,14.50],[54.14,13.67]],
+    countries:"Russia, Finland (EEZ), Sweden (EEZ), Denmark (EEZ), Germany" },
+  { name:"Yamal-Europe Pipeline", status:"limited", capacity:"33 bcm/yr", length:"4,107 km", detail:"Flows restricted/reversed since 2022. Polish section nationalized.", year:1999,
+    coords:[[57.04,34.96],[54.78,32.05],[54.50,30.42],[54.51,30.43],[53.90,27.57],[53.22,26.68],[53.09,25.31],[53.17,23.65],[52.99,22.25],[52.88,20.62],[52.66,19.07],[52.61,16.58],[52.46,14.60],[52.46,14.50]],
+    countries:"Russia, Belarus, Poland, Germany" },
+  { name:"Brotherhood (Urengoy-Pomary-Uzhhorod)", status:"shut", capacity:"100 bcm/yr", length:"4,451 km", detail:"Ukraine transit ended Dec 31, 2024. No longer carries Russian gas.", year:1984,
+    coords:[[65.97,78.37],[56.50,43.80],[51.18,35.28],[49.99,36.23],[49.59,34.55],[49.07,33.42],[48.75,30.22],[48.97,23.99],[48.62,22.30],[48.68,22.08],[48.15,17.11],[48.34,16.95]],
+    countries:"Russia, Ukraine, Slovakia, Austria" },
+  { name:"Brotherhood - Czech/German branch", status:"shut", capacity:"part of Brotherhood", length:"~800 km", detail:"Lanzhot to Waidhaus via Prague.", year:1984,
+    coords:[[48.72,16.97],[49.20,16.61],[50.08,14.44],[49.64,12.50]],
+    countries:"Czech Republic, Germany" },
+  { name:"Brotherhood - TAG (to Italy)", status:"shut", capacity:"part of Brotherhood", length:"~380 km", detail:"Baumgarten to Tarvisio.", year:1984,
+    coords:[[48.34,16.95],[46.55,13.71],[46.51,13.59]],
+    countries:"Austria, Italy" },
+  { name:"Soyuz Pipeline", status:"shut", capacity:"32 bcm/yr", length:"2,750 km", detail:"Part of Ukraine transit system. Ended Dec 31, 2024.", year:1979,
+    coords:[[51.77,55.10],[51.23,51.37],[50.15,48.55],[49.00,39.80],[49.07,33.42],[48.97,23.99],[48.62,22.30]],
+    countries:"Russia, Kazakhstan, Ukraine" },
+  { name:"TurkStream (offshore)", status:"active", capacity:"31.5 bcm/yr", length:"930 km", detail:"Two lines: Line 1 to Turkey, Line 2 to SE Europe via Bulgaria, Serbia, Hungary.", year:2020,
+    coords:[[44.89,37.32],[44.60,37.40],[43.50,34.00],[42.80,31.50],[42.50,30.00],[41.90,28.50],[41.64,28.09]],
+    countries:"Russia, Turkey" },
+  { name:"TurkStream (European onshore)", status:"active", capacity:"15.75 bcm/yr", length:"~950 km", detail:"Line 2 continuation to Hungary via Bulgaria, Serbia.", year:2020,
+    coords:[[41.64,28.09],[41.40,27.30],[41.98,27.52],[42.70,23.32],[43.32,21.90],[44.79,20.47],[46.15,19.98]],
+    countries:"Turkey, Bulgaria, Serbia, Hungary" },
+  { name:"Blue Stream", status:"active", capacity:"16 bcm/yr", length:"1,213 km", detail:"Russian gas to Turkey across the Black Sea.", year:2005,
+    coords:[[45.37,41.70],[44.37,38.53],[44.35,38.50],[43.00,37.50],[42.00,36.80],[41.73,36.37],[41.29,36.33],[39.93,32.87]],
+    countries:"Russia, Turkey" },
+  { name:"TAP (Trans-Adriatic)", status:"active", capacity:"10 bcm/yr", length:"878 km", detail:"Part of Southern Gas Corridor. Azerbaijani gas to Italy.", year:2020,
+    coords:[[41.08,26.35],[41.12,25.40],[40.94,24.40],[40.50,22.90],[40.52,21.30],[40.47,21.08],[40.62,20.78],[40.70,19.95],[40.72,19.56],[40.65,19.30],[40.45,18.85],[40.27,18.40]],
+    countries:"Greece, Albania, Italy" },
+  { name:"TANAP (Trans-Anatolian)", status:"active", capacity:"16 bcm/yr", length:"1,841 km", detail:"Azerbaijani gas across Turkey. Feeds TAP to Europe.", year:2018,
+    coords:[[41.51,43.33],[41.11,42.70],[40.60,43.10],[39.91,41.27],[40.26,40.22],[39.75,37.01],[39.82,34.80],[39.15,34.17],[39.93,32.87],[39.78,30.52],[40.05,29.98],[40.18,29.06],[40.15,26.41],[41.00,27.51],[40.92,26.38]],
+    countries:"Turkey" },
+  { name:"South Caucasus Pipeline (SCP)", status:"active", capacity:"25 bcm/yr", length:"692 km", detail:"Azerbaijan to Turkey border via Georgia. Feeds TANAP.", year:2006,
+    coords:[[40.18,49.47],[40.34,48.15],[40.62,47.15],[41.00,45.63],[41.05,45.10],[41.69,44.80],[41.54,44.48],[41.64,43.49],[41.51,43.33]],
+    countries:"Azerbaijan, Georgia" },
+  { name:"Interconnector (IUK)", status:"active", capacity:"25.5 bcm/yr", length:"235 km", detail:"Bi-directional UK-Belgium subsea pipeline.", year:1998,
+    coords:[[52.86,1.53],[52.10,2.30],[51.33,3.20]],
+    countries:"UK, Belgium" },
+  { name:"BBL Pipeline", status:"active", capacity:"15 bcm/yr", length:"235 km", detail:"Netherlands-UK subsea. Bi-directional since 2019.", year:2006,
+    coords:[[52.96,4.75],[52.90,3.10],[52.86,1.53]],
+    countries:"Netherlands, UK" },
+  { name:"Langeled", status:"active", capacity:"25.5 bcm/yr", length:"1,166 km", detail:"World's longest subsea gas pipeline. Norway to UK.", year:2007,
+    coords:[[62.83,6.56],[62.50,5.00],[61.00,3.50],[58.37,1.91],[57.00,1.50],[55.50,1.00],[54.50,0.50],[53.65,0.11]],
+    countries:"Norway, UK" },
+  { name:"Europipe I", status:"active", capacity:"18 bcm/yr", length:"620 km", detail:"Norwegian North Sea to Germany.", year:1995,
+    coords:[[58.19,2.47],[56.50,4.50],[54.50,6.50],[53.65,7.28]],
+    countries:"Norway (offshore), Germany" },
+  { name:"Europipe II", status:"active", capacity:"24 bcm/yr", length:"658 km", detail:"Norway (Karsto) to Germany (Dornum).", year:1999,
+    coords:[[59.28,5.53],[58.50,4.50],[56.00,5.50],[54.20,6.80],[53.65,7.28]],
+    countries:"Norway, Germany" },
+  { name:"Baltic Pipe", status:"active", capacity:"10 bcm/yr", length:"900 km", detail:"Norwegian gas to Poland via Denmark. Operational Nov 2022.", year:2022,
+    coords:[[56.50,4.80],[56.00,6.00],[55.70,8.15],[55.60,9.50],[55.35,10.40],[55.45,11.80],[55.25,12.20],[55.00,13.50],[54.80,14.20],[54.10,15.08]],
+    countries:"Norway (offshore), Denmark, Sweden (EEZ), Poland" },
+  { name:"Medgaz", status:"active", capacity:"10.5 bcm/yr", length:"210 km", detail:"Direct Algeria-Spain subsea link.", year:2011,
+    coords:[[32.93,3.28],[35.30,-1.38],[36.05,-1.90],[36.84,-2.44]],
+    countries:"Algeria, Spain" },
+  { name:"Transmed / Enrico Mattei", status:"active", capacity:"33.5 bcm/yr", length:"2,475 km", detail:"Algeria via Tunisia to Italy. Major supply route.", year:1983,
+    coords:[[32.93,3.28],[36.05,8.25],[36.50,9.50],[37.06,11.01],[37.10,11.10],[37.30,12.00],[37.66,12.59],[37.80,14.20],[38.23,15.60],[38.90,16.30],[40.85,14.27],[41.90,12.50],[44.49,11.34],[44.63,11.47]],
+    countries:"Algeria, Tunisia, Italy" },
+  { name:"GreenStream", status:"suspended", capacity:"8 bcm/yr", length:"520 km", detail:"Libya to Sicily. Suspended due to Libyan instability.", year:2004,
+    coords:[[29.50,10.30],[32.89,12.30],[33.00,12.40],[35.00,13.30],[37.07,14.25]],
+    countries:"Libya, Italy" },
+  { name:"EastMed Pipeline", status:"proposed", capacity:"10 bcm/yr (planned)", length:"1,900 km", detail:"Proposed: Israel/Cyprus to Italy via Greece. Shelved - technical/political challenges.", year:null,
+    coords:[[33.10,34.10],[33.65,32.98],[34.70,33.35],[34.50,30.00],[34.80,26.00],[35.20,25.70],[36.50,23.00],[39.50,20.30],[40.00,19.00],[40.15,18.49]],
+    countries:"Israel, Cyprus, Greece, Italy" },
+  { name:"Balticconnector", status:"active", capacity:"2.6 bcm/yr", length:"152 km", detail:"Finland-Estonia subsea. Repaired Apr 2024 after anchor damage.", year:2019,
+    coords:[[60.05,24.00],[60.14,24.23],[59.70,24.03],[59.35,24.05],[59.33,24.67]],
+    countries:"Finland, Estonia" }];
+const euOP=[{ name:"Druzhba - Northern Branch", status:"shut", capacity:"~700k bpd", length:"~3,500 km", detail:"Russia to Poland/Germany. Poland & Germany stopped imports since 2023.", year:1964,
+    coords:[[54.75,52.32],[53.19,50.10],[53.25,34.37],[52.85,32.68],[52.05,29.26],[52.10,23.70],[52.55,19.70],[52.34,14.55],[53.06,14.28]],
+    countries:"Russia, Belarus, Poland, Germany" },
+  { name:"Druzhba - Northern (Leuna spur)", status:"shut", capacity:"part of Druzhba", length:"~200 km", detail:"Spur to Leuna refinery in eastern Germany.", year:1964,
+    coords:[[52.34,14.55],[51.32,12.02]],
+    countries:"Germany" },
+  { name:"Druzhba - Southern Branch", status:"active", capacity:"~700k bpd", length:"~2,500 km", detail:"Still active under EU sanctions exemption. Supplies Hungary, Slovakia, Czech Republic.", year:1964,
+    coords:[[52.05,29.26],[51.50,28.80],[50.08,25.15],[48.62,22.30],[48.68,22.08],[48.15,17.11],[48.14,16.50]],
+    countries:"Belarus, Ukraine, Slovakia, Austria" },
+  { name:"Druzhba - Hungary spur", status:"active", capacity:"part of Druzhba", length:"~300 km", detail:"Southern branch spur to Hungarian refineries.", year:1964,
+    coords:[[48.74,19.15],[48.05,19.08],[47.32,18.92]],
+    countries:"Slovakia, Hungary" },
+  { name:"Druzhba - Czech Republic spur", status:"active", capacity:"part of Druzhba", length:"~400 km", detail:"Southern branch spur to Czech refineries.", year:1964,
+    coords:[[48.15,17.11],[49.20,16.61],[50.24,14.31],[50.60,13.58]],
+    countries:"Slovakia, Czech Republic" },
+  { name:"Norpipe Oil Pipeline", status:"active", capacity:"830k bpd", length:"354 km", detail:"Ekofisk field to Teesside, UK. First Norwegian export pipeline.", year:1975,
+    coords:[[56.55,3.21],[56.30,2.50],[55.50,1.00],[54.62,-1.16]],
+    countries:"Norway (offshore), UK" },
+  { name:"CPC Pipeline", status:"active", capacity:"1.34M bpd", length:"1,510 km", detail:"Kazakhstan crude to Black Sea. Subject to attacks in 2026.", year:2001,
+    coords:[[46.15,53.35],[47.10,51.92],[47.50,51.00],[46.35,48.04],[45.80,45.00],[45.50,43.00],[45.44,40.58],[45.04,38.98],[44.72,37.78]],
+    countries:"Kazakhstan, Russia" },
+  { name:"BTC Pipeline", status:"active", capacity:"1.2M bpd", length:"1,768 km", detail:"Major Caspian crude export route to Mediterranean.", year:2006,
+    coords:[[40.18,49.47],[40.04,48.93],[40.34,48.15],[40.62,47.15],[40.61,46.79],[41.00,45.63],[41.12,45.45],[41.15,45.10],[41.69,44.80],[41.84,43.53],[41.51,43.33],[39.91,41.27],[39.75,39.49],[39.75,37.01],[38.73,35.49],[37.00,35.32],[36.87,35.95]],
+    countries:"Azerbaijan, Georgia, Turkey" },
+  { name:"Odesa-Brody Pipeline", status:"limited", capacity:"240k bpd", length:"674 km", detail:"Ukraine internal. Proposed as Druzhba alternative.", year:2002,
+    coords:[[46.60,31.00],[46.48,30.73],[48.75,30.22],[49.23,28.47],[49.42,26.99],[50.08,25.15]],
+    countries:"Ukraine" },
+  { name:"TAL Pipeline (Transalpine)", status:"active", capacity:"800k bpd", length:"753 km", detail:"Trieste to Germany. Supplies 90% of Austria's crude.", year:1967,
+    coords:[[45.65,13.77],[46.51,13.59],[46.61,13.85],[46.53,14.30],[47.07,15.44],[47.38,15.09],[47.80,13.05],[48.17,12.83],[48.78,11.45],[48.80,11.77],[49.02,8.40]],
+    countries:"Italy, Austria, Germany" },
+  { name:"TAL - AWP spur (to Austria/Czech)", status:"active", capacity:"part of TAL", length:"~350 km", detail:"Schwechat refinery (Vienna) to Czech Republic.", year:1967,
+    coords:[[47.38,15.09],[48.14,16.50],[48.85,17.13],[50.24,14.31]],
+    countries:"Austria, Czech Republic" }];
+const pipes=[{r:"S.America",n:"GASBOL (Bolivia-Brazil)",t:"gas",s:"active",cap:"1.06 Bcf/d (30 MMm³/d)",len:"3,150 km",d:"South America's longest pipeline. Bolivian gas from Santa Cruz to São Paulo & Porto Alegre. Flows declining as Bolivia's production drops. Contract renegotiations ongoing.",c:"Bolivia, Brazil",y:1999,
+   coords:[[-17.78,-63.18],[-19.00,-57.80],[-19.01,-57.65],[-20.47,-54.62],[-22.13,-51.39],[-22.91,-47.06],[-23.55,-46.63],[-25.43,-49.27],[-27.60,-48.55],[-30.03,-51.23]]},
+  {r:"S.America",n:"YABOG Pipeline (Bolivia-Argentina)",t:"gas",s:"reduced",cap:"0.27 Bcf/d (7.7 MMm³/d)",len:"441 km",d:"Bolivia's oldest gas export pipeline (1972). Flows declining as Bolivia's production falls and Argentina develops Vaca Muerta.",c:"Bolivia, Argentina",y:1972,
+   coords:[[-21.97,-63.68],[-22.04,-63.69],[-22.21,-63.67],[-23.31,-64.22]]},
+  {r:"S.America",n:"GasAndes Pipeline",t:"gas",s:"reduced",cap:"10 MMm³/d",len:"463 km",d:"Trans-Andean gas pipeline crossing at 3,500m (Cristo Redentor pass). Flows curtailed after Argentina's 2004 energy crisis. Some restoration with Vaca Muerta growth.",c:"Argentina, Chile",y:1997,
+   coords:[[-33.37,-68.42],[-32.89,-68.83],[-32.59,-69.35],[-32.83,-70.07],[-32.83,-70.60],[-33.45,-70.67]]},
+  {r:"S.America",n:"TransAndino Oil Pipeline",t:"oil",s:"active",cap:"113,000 bpd",len:"463 km",d:"Crude oil from Neuquén Basin across the Andes (2,500m) to Concón port (Chile) for export.",c:"Argentina, Chile",y:1996,
+   coords:[[-37.05,-69.77],[-37.39,-68.93],[-35.87,-69.80],[-35.97,-70.39],[-35.43,-71.67],[-32.93,-71.51]]},
+  {r:"S.America",n:"TGN (Transportadora de Gas del Norte)",t:"gas",s:"active",cap:"25 MMm³/d",len:"6,448 km",d:"Northern Argentina gas system. Connects NW fields and Bolivia border to Buenos Aires. Two main trunk lines.",c:"Argentina",y:1960,
+   coords:[[-22.21,-63.67],[-26.81,-65.22],[-31.42,-64.18],[-32.95,-60.64],[-33.33,-60.22],[-34.60,-58.38]]},
+  {r:"S.America",n:"TGS (Transportadora de Gas del Sur)",t:"gas",s:"active",cap:"40 MMm³/d",len:"9,184 km",d:"Argentina's largest gas transporter. Connects Neuquén Basin (Vaca Muerta) and San Jorge Basin to Buenos Aires & Bahía Blanca petrochemical hub.",c:"Argentina",y:1949,
+   coords:[[-38.95,-68.06],[-38.47,-68.64],[-38.74,-62.32],[-34.60,-58.38]],branches:[[[-45.87,-67.48],[-38.74,-62.32]]]},
+  {r:"S.America",n:"NorAndino Pipeline",t:"gas",s:"reduced",cap:"8.5 MMm³/d",len:"1,180 km",d:"Gas from Salta (Argentina) across the high Andes (~4,400m at Paso de Jama) to Atacama mining region in northern Chile.",c:"Argentina, Chile",y:1999,
+   coords:[[-22.25,-63.80],[-24.22,-66.32],[-23.23,-67.04],[-22.91,-68.20],[-23.10,-70.45]]},
+  {r:"S.America",n:"OCP Pipeline (Heavy Crude)",t:"oil",s:"active",cap:"450,000 bpd",len:"485 km",d:"Heavy crude from Amazon (Lago Agrio) across the Andes at 4,064m to Esmeraldas/Balao terminal on the Pacific coast.",c:"Ecuador",y:2003,
+   coords:[[0.09,-76.88],[-0.46,-77.89],[-0.37,-78.14],[-0.18,-78.47],[-0.25,-79.17],[0.92,-79.89]]},
+  {r:"S.America",n:"SOTE Pipeline (Trans-Ecuadorian)",t:"oil",s:"active",cap:"360,000 bpd",len:"497 km",d:"Ecuador's original trans-Andean oil pipeline (1972). Multiple ruptures from earthquakes, landslides, volcanic activity.",c:"Ecuador",y:1972,
+   coords:[[0.09,-76.88],[0.04,-77.33],[-0.46,-77.89],[-0.37,-78.14],[-0.18,-78.47],[0.96,-79.65]]},
+  {r:"S.America",n:"Camisea Gas Pipeline",t:"gas",s:"active",cap:"1.29 Bcf/d",len:"730 km",d:"From Amazon jungle across the Andes at 4,860m (one of world's highest pipeline crossings) to coast at Pisco. Gas line to Lima + NGL line to Pisco fractionation.",c:"Peru",y:2004,
+   coords:[[-11.87,-72.90],[-12.62,-73.10],[-13.63,-73.95],[-13.16,-74.22],[-13.76,-75.60],[-13.71,-76.20],[-12.27,-76.87]]},
+  {r:"S.America",n:"Oleoducto Central / Vasconia",t:"oil",s:"active",cap:"590,000 bpd",len:"836 km",d:"Colombia's main oil pipeline from the Llanos region to Coveñas Caribbean export terminal. Carries majority of Colombia's crude exports.",c:"Colombia",y:1969,
+   coords:[[4.08,-73.55],[6.02,-74.06],[7.07,-73.85],[10.15,-73.96],[9.41,-75.69]]},
+  {r:"S.America",n:"Caño Limón - Coveñas Pipeline",t:"oil",s:"active",cap:"220,000 bpd",len:"770 km",d:"Oil from Arauca (near Venezuela border) to Coveñas. One of the most attacked pipelines in the world — bombed over 1,500 times since 1986 by ELN guerrillas.",c:"Colombia",y:1986,
+   coords:[[7.13,-71.43],[6.95,-71.87],[7.30,-72.48],[8.38,-73.35],[8.55,-73.60],[9.41,-75.69]]},
+  {r:"S.America",n:"Néstor Kirchner Gas Pipeline (GPNK)",t:"gas",s:"active",cap:"11 MMm³/d (0.39 Bcf/d)",len:"573 km",d:"New strategic pipeline (2023) for Vaca Muerta shale gas from Neuquén to Buenos Aires. Phase 2 under construction to San Jerónimo. Central to Argentina's net gas exporter ambitions.",c:"Argentina",y:2023,
+   coords:[[-38.55,-68.55],[-39.03,-67.08],[-37.77,-67.72],[-36.75,-63.03],[-34.65,-59.43],[-32.08,-60.73]]},
+  {r:"S.America",n:"OCENSA Pipeline",t:"oil",s:"active",cap:"720,000 bpd",len:"836 km",d:"Colombia's highest-capacity crude pipeline. Cusiana/Cupiagua fields to Coveñas export terminal. Built by BP consortium for Cusiana development.",c:"Colombia",y:1998,
+   coords:[[5.35,-72.72],[6.02,-74.06],[7.07,-73.85],[7.75,-73.39],[9.41,-75.69]]},
+  {r:"S.America",n:"Gasoducto del Pacífico (Pacific Gas)",t:"gas",s:"proposed",cap:"TBD",len:"TBD",d:"Proposed routes to bring Vaca Muerta gas to Chilean Pacific coast for potential LNG export. Multiple concepts studied, none under construction.",c:"Argentina, Chile",
+   coords:[[-38.50,-68.60],[-38.00,-70.50],[-37.00,-73.00]]},{r:"Africa",n:"Trans-Saharan Gas Pipeline (TSGP)",t:"gas",s:"proposed",cap:"30 bcm/yr (planned)",len:"4,128 km",d:"Proposed: Warri (Nigeria) through Niger to Hassi R'Mel (Algeria). Repeatedly delayed - security & financing.",c:"Nigeria, Niger, Algeria",
+   coords:[[5.76,5.67],[7.56,6.65],[10.52,7.43],[12.00,8.52],[13.50,7.50],[13.80,8.99],[16.97,7.99],[27.19,2.47],[32.93,3.28]]},
+  {r:"Africa",n:"West African Gas Pipeline (WAGP)",t:"gas",s:"active",cap:"5 bcm/yr",len:"678 km",d:"Offshore/onshore from Nigeria to Ghana via Benin, Togo. Intermittent supply shortfalls.",c:"Nigeria, Benin, Togo, Ghana",y:2011,
+   coords:[[5.59,5.16],[6.42,3.42],[6.30,2.80],[6.35,2.43],[6.13,1.25],[5.63,0.00],[4.88,-1.75]]},
+  {r:"Africa",n:"Hassi R'Mel Hub System",t:"gas",s:"active",cap:"~80 bcm/yr",len:"Network",d:"Gas hub radiating from Algeria's largest gas field to Arzew, Skikda, Medgaz, Transmed export routes.",c:"Algeria",y:1961,
+   coords:[[32.93,3.28],[35.80,-0.27]],branches:[[[32.93,3.28],[36.87,6.91]],[[32.93,3.28],[35.30,-1.38]],[[32.93,3.28],[36.05,8.25]],[[32.93,3.28],[27.19,2.47]]]},
+  {r:"Africa",n:"Transmed (Algeria-Italy)",t:"gas",s:"active",cap:"33.5 bcm/yr",len:"2,475 km",d:"Major route from Hassi R'Mel via Tunisia to Sicily/Italy.",c:"Algeria, Tunisia, Italy",y:1983,
+   coords:[[32.93,3.28],[36.05,8.25],[36.50,9.50],[37.06,11.01],[37.66,12.59]]},
+  {r:"Africa",n:"Medgaz (Algeria-Spain)",t:"gas",s:"active",cap:"10.5 bcm/yr",len:"210 km",d:"Direct subsea Algeria to Spain link.",c:"Algeria, Spain",y:2011,
+   coords:[[35.30,-1.38],[36.05,-1.90],[36.84,-2.44]]},
+  {r:"Africa",n:"GreenStream (Libya-Italy)",t:"gas",s:"suspended",cap:"8 bcm/yr",len:"520 km",d:"Libya to Sicily. Suspended - Libyan instability.",c:"Libya, Italy",y:2004,
+   coords:[[29.50,10.30],[32.89,12.30],[33.00,12.40],[35.00,13.30],[37.07,14.25]]},
+  {r:"Africa",n:"EACOP (East African Crude Oil Pipeline)",t:"oil",s:"construction",cap:"216k bpd",len:"1,443 km",d:"Heated pipeline from Lake Albert (Uganda) to Tanga port (Tanzania). Controversial - TotalEnergies-led.",c:"Uganda, Tanzania",
+   coords:[[1.52,31.08],[-0.63,31.52],[-1.00,31.43],[-1.33,31.82],[-3.66,33.42],[-4.82,34.74],[-6.17,35.74],[-5.43,38.02],[-5.07,39.10]]},
+  {r:"Africa",n:"Chad-Cameroon Pipeline",t:"oil",s:"active",cap:"250k bpd",len:"1,070 km",d:"Doba basin (Chad) to Kribi marine terminal (Cameroon). World Bank-financed.",c:"Chad, Cameroon",y:2003,
+   coords:[[8.65,16.85],[8.57,16.07],[6.80,14.80],[6.52,14.30],[4.93,13.30],[3.23,10.73],[2.95,9.88]]},
+  {r:"Africa",n:"Niger-Benin Pipeline (CNPC)",t:"oil",s:"active",cap:"110k bpd",len:"1,950 km",d:"New (2024): Agadem basin (Niger) to Seme terminal (Benin). Built by CNPC.",c:"Niger, Benin",y:2024,
+   coords:[[14.50,12.30],[13.80,8.99],[13.05,3.19],[11.87,3.40],[9.34,2.62],[7.18,2.07],[6.37,2.63]]},
+  {r:"Africa",n:"Escravos-Lagos Pipeline (ELPS)",t:"gas",s:"active",cap:"1.1 Bcf/day",len:"340 km",d:"Major gas trunkline supplying Lagos from Niger Delta.",c:"Nigeria",y:1989,
+   coords:[[5.59,5.16],[5.76,5.67],[6.34,5.63],[6.61,3.51],[6.45,3.40]]},
+  {r:"Africa",n:"Rompco Pipeline (Mozambique-South Africa)",t:"gas",s:"active",cap:"~500 TJ/day",len:"865 km",d:"Temane/Pande gas fields (Mozambique) to Secunda (Sasol, South Africa). Main piped gas for SA.",c:"Mozambique, South Africa",y:2004,
+   coords:[[-23.58,35.10],[-25.43,31.95],[-26.55,29.17]]},
+  {r:"Africa",n:"Mozambique LNG Connections (Afungi)",t:"gas",s:"partial",cap:"Various",len:"Offshore",d:"Subsea connections from Rovuma Basin to Afungi LNG. Coral South FLNG operational; Area 1 delayed.",c:"Mozambique",
+   coords:[[-12.50,42.50],[-12.30,42.10],[-10.75,40.38]]},{r:"Oceania",n:"DBNGP (Dampier-Bunbury)",t:"gas",s:"active",cap:"845 TJ/day",len:"1,530 km",d:"Major gas trunkline. NW Shelf to Perth/Bunbury. Vital for WA domestic supply.",c:"Australia (WA)",y:1984,
+   coords:[[-20.66,116.71],[-20.73,116.85],[-21.64,115.11],[-22.00,114.50],[-24.88,113.66],[-28.77,114.62],[-29.82,115.27],[-31.95,115.86],[-33.33,115.64]]},
+  {r:"Oceania",n:"Moomba-Sydney Pipeline",t:"gas",s:"active",cap:"500 TJ/day",len:"2,029 km",d:"Cooper Basin to Sydney. Also supplies Canberra. East coast backbone.",c:"Australia (SA/NSW)",y:1976,
+   coords:[[-28.10,140.20],[-34.31,148.30],[-35.28,149.13],[-34.24,150.69]]},
+  {r:"Oceania",n:"Eastern Gas Pipeline",t:"gas",s:"active",cap:"289 TJ/day",len:"795 km",d:"Longford (Bass Strait) to Sydney. Alternative south-to-north route.",c:"Australia (VIC/NSW)",y:2000,
+   coords:[[-38.31,147.07],[-37.70,148.45],[-36.67,149.84],[-34.88,150.60],[-33.84,150.85]]},
+  {r:"Oceania",n:"SWQP (Ballera-Wallumbilla)",t:"gas",s:"active",cap:"385 TJ/day",len:"937 km",d:"Cooper Basin to Wallumbilla hub (QLD). Bidirectional. Key east coast link.",c:"Australia (QLD)",y:1996,
+   coords:[[-27.40,141.80],[-26.60,144.50],[-26.58,149.18]]},
+  {r:"Oceania",n:"Queensland Gas Pipeline",t:"gas",s:"active",cap:"Various",len:"627 km",d:"Wallumbilla hub to Gladstone. Feeds LNG precinct at Curtis Island.",c:"Australia (QLD)",y:1989,
+   coords:[[-26.58,149.18],[-25.70,149.90],[-23.85,151.27]]},
+  {r:"Oceania",n:"PNG-Queensland Pipeline",t:"gas",s:"proposed",cap:"TBD",len:"~4,000 km",d:"Proposed: PNG Highlands to Gladstone via Cape York. Never progressed to FID.",c:"PNG, Australia",
+   coords:[[-6.40,143.00],[-9.08,143.20],[-10.00,142.50],[-11.00,142.53],[-19.25,146.80],[-23.85,151.27]]},
+  {r:"Oceania",n:"Taranaki Gas Network (NZ)",t:"gas",s:"active",cap:"Various",len:"Network",d:"NZ gas backbone. Taranaki fields to Auckland (north) and Wellington (south).",c:"New Zealand",
+   coords:[[-39.29,173.82],[-39.07,174.19],[-39.43,174.17],[-37.55,175.16],[-36.85,174.76]],
+   branch:[[-39.43,174.17],[-41.29,174.78]]},
+  {r:"Oceania",n:"Goldfields Gas Pipeline",t:"gas",s:"active",cap:"Various",len:"1,380 km",d:"NW Shelf area to Kalgoorlie goldfields. Powers mining operations.",c:"Australia (WA)",y:1996,
+   coords:[[-21.55,115.95],[-23.35,119.73],[-27.82,120.70],[-30.75,121.47]]},
+  {r:"Oceania",n:"Moomba-Adelaide Pipeline (MAPS)",t:"gas",s:"active",cap:"Various",len:"1,185 km",d:"Moomba hub to Adelaide. One of Australia's oldest major gas pipelines.",c:"Australia (SA)",y:1969,
+   coords:[[-28.10,140.20],[-32.49,137.78],[-34.93,138.60]]},{r:"Asia",n:"Dolphin Pipeline",s:"active",cap:"33 bcm/yr",len:"364 km",d:"Qatar-UAE-Oman. First GCC cross-border gas pipeline.",c:"Qatar, UAE, Oman",y:2007,
+   coords:[[25.92,51.53],[25.60,52.00],[25.30,52.80],[24.68,54.65],[24.60,54.70],[24.98,55.03],[25.12,56.33]]},
+  {r:"Asia",n:"IGAT-1 (Iran Trunkline 1)",s:"active",cap:"10 bcm/yr",len:"1,100 km",d:"First Iranian gas trunk. Originally for USSR, now domestic.",c:"Iran",y:1970,
+   coords:[[30.70,50.33],[32.65,51.68],[34.64,50.88],[35.69,51.39],[37.28,49.58],[38.43,48.87]]},
+  {r:"Asia",n:"IGAT-2",s:"active",cap:"16 bcm/yr",len:"1,200 km",d:"South Pars gas northward to Caspian coast.",c:"Iran",y:1988,
+   coords:[[27.84,52.06],[29.59,52.58],[32.65,51.68],[33.99,51.44],[36.27,50.00],[37.28,49.58],[38.43,48.87]]},
+  {r:"Asia",n:"IGAT-5",s:"active",cap:"30 bcm/yr",len:"1,800 km",d:"South Pars to northeast Iran (Mashhad).",c:"Iran",y:2009,
+   coords:[[27.48,52.61],[32.65,51.68],[31.90,54.37],[33.50,57.00],[32.87,59.22],[36.30,59.60]]},
+  {r:"Asia",n:"Iran-Turkey Pipeline",s:"active",cap:"14 bcm/yr",len:"2,577 km",d:"Tabriz to Ankara. Iran's main gas export to Turkey.",c:"Iran, Turkey",y:2001,
+   coords:[[38.08,46.29],[39.40,44.39],[39.40,44.38],[39.72,44.09],[39.90,41.27],[39.75,37.02],[39.93,32.86]]},
+  {r:"Asia",n:"IPI / Peace Pipeline",s:"proposed",cap:"21 bcm/yr",len:"2,775 km",d:"Proposed: Iran-Pakistan-India. Stalled by US sanctions. India withdrew.",c:"Iran, Pakistan, India",
+   coords:[[27.48,52.61],[27.20,60.68],[26.23,61.64],[30.18,66.99],[30.20,71.47],[28.40,70.00],[28.61,77.21]]},
+  {r:"Asia",n:"Central Asia-China (Lines A+B+C)",s:"active",cap:"55 bcm/yr",len:"1,833 km",d:"Turkmen gas through Uzbekistan, Kazakhstan to China. Three parallel lines.",c:"Turkmenistan, Uzbekistan, Kazakhstan, China",y:2009,
+   coords:[[38.97,61.99],[39.77,64.42],[40.53,64.45],[41.20,67.80],[42.32,69.60],[42.90,71.37],[43.24,76.95],[44.21,80.42]]},
+  {r:"Asia",n:"Central Asia-China Line D",s:"construction",cap:"30 bcm/yr",len:"1,000 km",d:"New route via Tajikistan, Kyrgyzstan. Mountainous terrain. Delayed.",c:"Turkmenistan, Tajikistan, Kyrgyzstan, China",
+   coords:[[37.10,62.40],[37.50,64.50],[38.20,67.80],[38.56,68.77],[39.70,70.50],[40.53,72.80],[40.00,74.00],[39.70,73.90],[39.47,75.99]]},
+  {r:"Asia",n:"Power of Siberia",s:"active",cap:"38 bcm/yr",len:"3,000 km",d:"East Siberian gas to China. Ramping to full capacity. 30-year Gazprom-CNPC contract.",c:"Russia, China",y:2019,
+   coords:[[60.00,113.00],[60.72,114.94],[56.66,124.71],[54.00,123.93],[51.40,128.13],[50.27,127.54],[50.24,127.49],[45.75,126.65],[43.88,125.32],[41.80,123.43],[31.23,121.47]]},
+  {r:"Asia",n:"Power of Siberia 2",s:"proposed",cap:"50 bcm/yr",len:"2,600 km",d:"Proposed: West Siberian gas to China via Mongolia. No FID yet.",c:"Russia, Mongolia, China",
+   coords:[[51.85,100.00],[50.36,106.45],[49.46,106.00],[47.91,106.91],[43.73,111.90],[43.65,111.98],[39.90,116.40]]},
+  {r:"Asia",n:"Sakhalin-Khabarovsk-Vladivostok",s:"active",cap:"30 bcm/yr",len:"1,800 km",d:"Sakhalin offshore to Russian Far East cities.",c:"Russia",y:2011,
+   coords:[[52.00,143.40],[47.00,142.70],[51.46,140.80],[50.55,137.01],[48.48,135.08],[43.12,131.87]]},
+  {r:"Asia",n:"West-East Pipeline 1 (China)",s:"active",cap:"17 bcm/yr",len:"4,000 km",d:"Tarim Basin to Shanghai. China's first major gas trunk.",c:"China",y:2004,
+   coords:[[41.00,84.00],[41.76,86.15],[42.85,90.23],[42.83,93.51],[36.06,103.83],[34.26,108.94],[34.75,113.65],[32.06,118.80],[31.23,121.47]]},
+  {r:"Asia",n:"West-East Pipeline 2 (China)",s:"active",cap:"30 bcm/yr",len:"4,843 km",d:"Central Asian gas via Horgos to Guangzhou/Hong Kong.",c:"China",y:2012,
+   coords:[[44.21,80.42],[43.80,87.60],[36.06,103.83],[34.26,108.94],[30.59,114.31],[28.68,115.86],[23.13,113.26],[22.30,114.17]]},
+  {r:"Asia",n:"West-East Pipeline 3 (China)",s:"active",cap:"30 bcm/yr",len:"5,220 km",d:"Horgos to Fuzhou (Fujian). Third cross-country trunk.",c:"China",y:2014,
+   coords:[[44.21,80.42],[43.80,87.60],[37.51,105.19],[34.26,108.94],[28.23,112.94],[28.68,115.86],[26.07,119.30]]},
+  {r:"Asia",n:"West-East Pipeline 4 (China)",s:"construction",cap:"50 bcm/yr",len:"4,880 km",d:"Under construction. Xinjiang to Zhejiang. Expected ~2027.",c:"China",
+   coords:[[39.72,75.25],[41.76,86.15],[42.83,93.51],[37.51,105.19],[34.26,108.94],[31.82,117.23],[30.27,120.15]]},
+  {r:"Asia",n:"Myanmar-China Gas Pipeline",s:"active",cap:"12 bcm/yr",len:"793 km",d:"Shwe field (Bay of Bengal) to Kunming. Strategic Malacca bypass.",c:"Myanmar, China",y:2013,
+   coords:[[19.43,93.55],[20.15,94.93],[21.97,96.08],[22.93,97.75],[23.99,97.85],[24.01,97.86],[25.12,99.17],[25.04,102.68]]},
+  {r:"Asia",n:"Yadana Pipeline (Myanmar-Thailand)",s:"active",cap:"8 bcm/yr",len:"668 km",d:"Yadana offshore to Thailand. TotalEnergies withdrew 2022.",c:"Myanmar, Thailand",y:1998,
+   coords:[[13.00,96.50],[14.60,97.85],[15.30,98.75],[14.02,99.53],[13.54,99.81]]},
+  {r:"Asia",n:"Malaysia-Singapore Pipeline",s:"active",cap:"3 bcm/yr",len:"~70 km",d:"Part of Trans-ASEAN vision. PGU system to Singapore.",c:"Malaysia, Singapore",y:1992,
+   coords:[[4.53,103.43],[1.55,103.75],[1.35,103.62],[1.27,103.70]]},
+  {r:"Asia",n:"Malaysia-Thailand JDA Pipeline",s:"active",cap:"7.6 bcm/yr",len:"270 km",d:"Joint Development Area gas to both countries.",c:"Thailand, Malaysia",y:2005,
+   coords:[[7.20,103.50],[6.50,103.50],[7.19,100.60]],branch:[[6.50,103.50],[4.53,103.43]]},
+  {r:"Asia",n:"HBJ Pipeline (India)",s:"active",cap:"18.2 bcm/yr",len:"1,750 km",d:"India's first major gas trunk. Hazira to Jagdishpur.",c:"India",y:1987,
+   coords:[[21.10,72.63],[21.70,72.97],[24.10,77.30],[26.47,79.51],[26.28,83.97]]},
+  {r:"Asia",n:"TAPI Pipeline",s:"construction",cap:"33 bcm/yr",len:"1,814 km",d:"Turkmenistan-Afghanistan-Pakistan-India. Turkmenistan section done. Afghan security main obstacle.",c:"Turkmenistan, Afghanistan, Pakistan, India",
+   coords:[[37.10,62.40],[37.60,61.83],[34.34,62.20],[31.63,65.71],[30.55,66.30],[30.18,66.99],[30.20,71.47],[30.40,74.03]]},{r:"Asia",n:"East-West Pipeline (Petroline)",s:"active",cap:"5M bpd",len:"1,200 km",d:"Strategic Strait of Hormuz bypass. Abqaiq to Yanbu (Red Sea). Saudi Aramco.",c:"Saudi Arabia",y:1981,
+   coords:[[25.94,49.68],[24.71,46.68],[23.91,42.93],[24.47,39.61],[24.09,38.06]]},
+  {r:"Asia",n:"Habshan-Fujairah Pipeline",s:"active",cap:"1.5M bpd",len:"360 km",d:"ADNOC Hormuz bypass. Abu Dhabi to Gulf of Oman.",c:"UAE",y:2012,
+   coords:[[23.90,53.60],[24.19,55.76],[24.90,56.00],[25.12,56.33]]},
+  {r:"Asia",n:"Kirkuk-Ceyhan Pipeline",s:"intermittent",cap:"1.6M bpd",len:"970 km",d:"Iraq-Turkey. Disrupted by wars, politics. KRG exports halted since 2023 ICC ruling.",c:"Iraq, Turkey",y:1977,
+   coords:[[35.47,44.39],[36.19,44.01],[36.87,43.00],[37.15,42.68],[37.25,42.47],[37.89,41.13],[37.76,38.28],[36.88,35.95]]},
+  {r:"Asia",n:"Kazakhstan-China Oil Pipeline",s:"active",cap:"400k bpd",len:"2,228 km",d:"Caspian (Atyrau) to Alashankou. China's first Central Asian crude import.",c:"Kazakhstan, China",y:2006,
+   coords:[[47.11,51.92],[47.90,56.50],[44.47,66.27],[47.70,71.63],[45.30,82.50],[45.17,82.57]]},
+  {r:"Asia",n:"ESPO Pipeline (Russia)",s:"active",cap:"1.6M bpd",len:"4,756 km",d:"East Siberia to Pacific. Major Russian pivot to Asia. Spur to China (Daqing).",c:"Russia, China (spur)",y:2009,
+   coords:[[55.93,98.00],[56.50,107.00],[52.03,113.50],[54.00,123.93],[48.48,135.08],[42.77,133.05]],
+   spur:[[54.00,123.93],[53.50,123.50],[52.97,122.53],[46.60,125.02]]},
+  {r:"Asia",n:"Myanmar-China Oil Pipeline",s:"active",cap:"440k bpd",len:"771 km",d:"Crude via Indian Ocean to Kunming. Malacca bypass.",c:"Myanmar, China",y:2017,
+   coords:[[19.43,93.55],[20.15,94.93],[21.97,96.08],[23.99,97.85],[24.01,97.86],[25.04,102.68]]},{r:"N.America",n:"Keystone Pipeline System",s:"active",cap:"622k bpd",len:"3,456 km",d:"TC Energy. Alberta to Gulf Coast via Cushing. 4 phases.",c:"Canada, USA",y:2010,
+   coords:[[52.67,-111.59],[50.45,-104.61],[49.00,-107.85],[46.37,-104.28],[42.87,-97.39],[40.34,-96.83],[38.76,-89.07],[35.98,-96.77],[29.97,-94.00],[29.90,-93.93]]},
+  {r:"N.America",n:"Keystone XL (Cancelled)",s:"cancelled",cap:"830k bpd (planned)",len:"1,897 km",d:"Rejected Obama 2015, revived Trump 2017, cancelled Biden Jan 2021. TC Energy terminated June 2021.",c:"Canada, USA",
+   coords:[[52.67,-111.59],[49.00,-107.00],[46.37,-104.28],[44.04,-101.66],[43.37,-99.86],[42.53,-98.98],[40.34,-96.83]]},
+  {r:"N.America",n:"Trans-Alaska Pipeline (TAPS)",s:"active",cap:"480k bpd (25% capacity)",len:"1,287 km",d:"Iconic 1977 pipeline. Peak 2.1M bpd (1988). Crosses 3 mountain ranges, permafrost.",c:"USA (Alaska)",y:1977,
+   coords:[[70.26,-148.72],[69.15,-148.83],[68.13,-149.47],[66.81,-150.70],[65.90,-149.73],[64.84,-147.72],[64.04,-145.73],[63.18,-145.56],[62.11,-145.53],[61.13,-146.35]]},
+  {r:"N.America",n:"Enbridge Mainline",s:"active",cap:"3.1M bpd",len:"5,353 km",d:"World's longest oil pipeline system. ~25% of N. American crude.",c:"Canada, USA",y:1950,
+   coords:[[53.54,-113.49],[52.67,-111.59],[50.00,-106.00],[49.00,-100.00],[48.88,-97.32],[47.16,-95.30],[46.72,-92.10],[44.26,-88.40],[42.97,-82.40],[43.05,-79.03],[45.51,-73.55]]},
+  {r:"N.America",n:"Enbridge Line 5",s:"disputed",cap:"540k bpd",len:"1,038 km",d:"Controversial Straits of Mackinac crossing. Michigan wants shutdown. Legal battles ongoing.",c:"USA",y:1953,
+   coords:[[46.72,-92.10],[46.45,-90.17],[45.83,-84.73],[44.72,-83.80],[43.46,-83.73],[42.97,-82.40]]},
+  {r:"N.America",n:"Dakota Access (DAPL)",s:"active",cap:"750k bpd",len:"1,886 km",d:"Bakken crude to Patoka hub. Controversial Standing Rock Sioux protests 2016.",c:"USA",y:2017,
+   coords:[[48.32,-102.39],[48.15,-103.62],[46.81,-99.32],[44.37,-97.39],[42.50,-96.40],[41.26,-93.10],[38.76,-89.07]]},
+  {r:"N.America",n:"Colonial Pipeline",s:"active",cap:"2.5M bpd",len:"8,851 km",d:"Largest refined products pipeline in world. Houston to NY/NJ. Ransomware attack May 2021.",c:"USA",y:1963,
+   coords:[[29.76,-95.37],[30.08,-94.10],[30.45,-91.15],[32.35,-90.18],[33.52,-86.81],[34.75,-84.39],[35.23,-80.84],[36.85,-76.29],[37.55,-77.46],[38.90,-77.04],[39.95,-75.17],[40.62,-74.24]]},
+  {r:"N.America",n:"Capline Pipeline",s:"active",cap:"1.2M bpd (reversed 2022)",len:"1,017 km",d:"Reversed to flow south. Now carries Canadian/Bakken crude to Gulf refineries.",c:"USA",y:1968,
+   coords:[[38.76,-89.07],[38.53,-89.13],[37.50,-89.18],[35.15,-90.05],[33.46,-90.84],[31.56,-91.40],[30.05,-90.83]]},
+  {r:"N.America",n:"Trans Mountain (TMX)",s:"active",cap:"890k bpd (expanded 2024)",len:"1,150 km",d:"Edmonton to Vancouver/Burnaby. C$34B expansion completed May 2024. Government-owned.",c:"Canada",y:1953,
+   coords:[[53.54,-113.49],[53.58,-116.44],[52.88,-118.08],[51.38,-117.92],[51.04,-117.52],[50.68,-119.30],[50.25,-120.85],[49.35,-121.44],[49.29,-122.95]]},
+  {r:"N.America",n:"EPIC Crude Pipeline",s:"active",cap:"600k bpd",len:"1,100 km",d:"Permian Basin to Corpus Christi export terminals.",c:"USA",y:2019,
+   coords:[[31.87,-103.94],[31.75,-103.16],[30.56,-100.44],[29.42,-98.49],[28.80,-97.50],[27.80,-97.40]]},
+  {r:"N.America",n:"Gray Oak Pipeline",s:"active",cap:"900k bpd",len:"1,400 km",d:"Permian to multiple Gulf Coast destinations.",c:"USA",y:2019,
+   coords:[[31.75,-103.16],[31.40,-102.35],[30.49,-99.77],[29.42,-98.49],[28.38,-97.70],[28.79,-95.98],[29.76,-95.37],[27.80,-97.40]]},
+  {r:"N.America",n:"Cactus II Pipeline",s:"active",cap:"670k bpd",len:"700 km",d:"Permian to Corpus Christi. Plains All American.",c:"USA",y:2019,
+   coords:[[31.75,-103.16],[31.13,-102.22],[29.88,-99.10],[28.40,-97.35],[27.88,-97.21]]},
+  {r:"N.America",n:"Enbridge Line 3 Replacement",s:"active",cap:"760k bpd",len:"1,765 km",d:"Controversial replacement pipeline. Environmental protests. Completed Oct 2021.",c:"Canada, USA",y:2021,
+   coords:[[52.67,-111.59],[51.92,-109.13],[50.90,-107.20],[49.00,-104.00],[48.50,-99.50],[48.30,-96.50],[47.70,-94.50],[46.72,-92.10]]},
+  {r:"N.America",n:"Seaway Pipeline",s:"active",cap:"850k bpd",len:"800 km",d:"Cushing to Freeport, TX. Reversed in 2012 (was northbound).",c:"USA",y:2012,
+   coords:[[35.98,-96.77],[34.17,-97.14],[33.20,-96.62],[31.76,-95.64],[28.97,-95.46]]},{r:"N.America",n:"Transco (Transcontinental)",s:"active",cap:"17.7 Bcf/d",len:"16,000+ km",d:"Largest US gas pipeline by volume. Gulf Coast to NYC metro. Williams Companies.",c:"USA",y:1950,
+   coords:[[27.80,-97.40],[29.76,-95.37],[30.23,-92.27],[31.25,-89.23],[33.52,-86.81],[35.23,-80.84],[37.55,-77.46],[39.95,-75.17],[40.62,-74.24]]},
+  {r:"N.America",n:"Tennessee Gas Pipeline",s:"active",cap:"8 Bcf/d",len:"18,000+ km",d:"Gulf Coast to New England. Kinder Morgan.",c:"USA",y:1944,
+   coords:[[28.50,-90.50],[30.23,-92.27],[32.30,-90.18],[34.74,-86.59],[38.25,-85.76],[39.10,-84.51],[40.44,-79.95],[41.27,-76.00],[42.27,-73.80],[42.67,-71.30]]},
+  {r:"N.America",n:"NGPL (Natural Gas Pipeline of America)",s:"active",cap:"5.7 Bcf/d",len:"15,000+ km",d:"Gulf Coast to Chicago. Kinder Morgan.",c:"USA",y:1931,
+   coords:[[29.50,-93.50],[30.08,-94.10],[32.30,-95.50],[35.98,-96.77],[38.76,-89.07],[39.80,-89.64],[41.88,-87.63]]},
+  {r:"N.America",n:"Rockies Express (REX)",s:"active",cap:"1.8 Bcf/d",len:"2,702 km",d:"Bidirectional. Rockies to Ohio. Tallgrass Energy.",c:"USA",y:2009,
+   coords:[[40.04,-107.91],[41.68,-107.98],[41.30,-105.50],[41.00,-102.00],[40.81,-99.50],[40.47,-96.50],[39.90,-92.00],[39.77,-80.87]]},
+  {r:"N.America",n:"Rover Pipeline",s:"active",cap:"3.25 Bcf/d",len:"1,072 km",d:"Marcellus/Utica to Dawn hub (Ontario) and Gulf markets.",c:"USA",y:2017,
+   coords:[[39.65,-80.63],[39.77,-80.87],[40.10,-81.50],[40.70,-82.50],[41.20,-83.00],[42.67,-81.90]]},
+  {r:"N.America",n:"Mountain Valley Pipeline",s:"active",cap:"2 Bcf/d",len:"500 km",d:"Appalachian gas to Southeast markets. Long-delayed (permits). Completed 2024.",c:"USA",y:2024,
+   coords:[[39.62,-80.65],[38.93,-80.47],[38.32,-80.15],[37.79,-80.41],[37.27,-80.40],[36.82,-79.40]]},
+  {r:"N.America",n:"Alliance Pipeline",s:"active",cap:"1.6 Bcf/d",len:"3,848 km",d:"BC/Alberta NGL-rich gas to Chicago area.",c:"Canada, USA",y:2000,
+   coords:[[56.24,-120.85],[55.73,-119.53],[53.54,-113.49],[52.20,-110.70],[50.60,-107.80],[49.00,-104.00],[48.10,-100.30],[46.00,-96.00],[43.00,-91.00],[41.35,-88.25]]},
+  {r:"N.America",n:"NGTL System (NOVA Gas)",s:"active",cap:"15.6 Bcf/d",len:"24,000+ km",d:"Alberta gas gathering backbone. TC Energy. Feeds all export pipelines.",c:"Canada",y:1957,
+   coords:[[55.76,-120.24],[55.17,-118.80],[54.39,-115.47],[53.54,-113.49],[52.27,-113.81],[51.03,-114.07],[50.95,-110.00]]},
+  {r:"N.America",n:"TC Energy Canadian Mainline",s:"active",cap:"6.8 Bcf/d",len:"14,000+ km",d:"Alberta to Eastern Canada/US border. Trans-Canada backbone.",c:"Canada",y:1958,
+   coords:[[50.95,-110.00],[50.29,-107.79],[50.45,-104.61],[49.88,-97.15],[49.77,-92.84],[48.38,-89.25],[46.49,-80.99],[45.50,-75.80],[45.51,-73.55]]},
+  {r:"N.America",n:"Coastal GasLink",s:"active",cap:"2.1 Bcf/d",len:"670 km",d:"BC NE to Kitimat for LNG Canada. Completed 2023. Controversial (Indigenous opposition).",c:"Canada",y:2023,
+   coords:[[55.76,-120.24],[55.70,-121.63],[54.89,-124.88],[54.30,-126.00],[54.05,-128.68]]},
+  {r:"N.America",n:"Gulf Coast Express",s:"active",cap:"2 Bcf/d",len:"860 km",d:"Permian to Agua Dulce hub near Corpus Christi.",c:"USA",y:2019,
+   coords:[[31.03,-103.56],[30.89,-102.88],[30.13,-100.45],[29.20,-98.80],[27.78,-97.91]]},
+  {r:"N.America",n:"Permian Highway Pipeline",s:"active",cap:"2.65 Bcf/d",len:"580 km",d:"Permian to Katy hub near Houston. Kinder Morgan.",c:"USA",y:2020,
+   coords:[[31.03,-103.56],[30.49,-99.77],[29.79,-98.49],[29.79,-95.82]]},
+  // Mexico
+  {r:"N.America",n:"Sistema Nacional de Gasoductos (Mexico)",s:"active",cap:"5.2 Bcf/d",len:"~14,000 km",d:"Mexico's national gas grid. Increasingly fed by US imports.",c:"Mexico",y:1960,
+   coords:[[31.69,-106.42],[28.63,-106.09],[25.67,-100.31],[23.73,-99.14],[22.15,-97.85],[19.43,-99.13],[19.18,-96.13]]},
+  {r:"N.America",n:"Sur de Texas-Tuxpan (Underwater)",s:"active",cap:"2.6 Bcf/d",len:"800 km",d:"Subsea pipeline from Texas to Tuxpan, Mexico. Major US gas export route.",c:"USA, Mexico",y:2019,
+   coords:[[27.78,-97.91],[25.93,-97.48],[23.50,-97.30],[20.96,-97.40]]}];
+
+// ===== ALL FIELDS =====
+const euFields=[{ name:"Troll Field", country:"Norway", type:"gas_and_oil", lat:60.64, lng:3.72, production:"Gas: ~36 bcm/yr, Oil: ~30k bpd", reserves:"1,325 bcm gas", status:"active", year:1979, note:"Largest North Sea gas field. Critical for European supply." },
+  { name:"Johan Sverdrup", country:"Norway", type:"oil", lat:58.90, lng:2.50, production:"~620k bpd (2026)", reserves:"2.7 billion barrels", status:"active", year:2010, note:"Largest Norwegian discovery since 1980s. Powered by hydroelectricity." },
+  { name:"Ekofisk Field", country:"Norway", type:"oil_and_gas", lat:56.55, lng:3.21, production:"~160k bpd oil+gas", reserves:"~3.2 billion barrels OE (original)", status:"active", year:1969, note:"First commercial discovery on Norwegian shelf. Connects to Norpipe." },
+  { name:"Statfjord Field", country:"Norway/UK", type:"oil_and_gas", lat:61.25, lng:1.85, production:"~20k bpd (late life)", reserves:"~5.3 billion barrels OE (original)", status:"late_life", year:1974, note:"Peaked at 850k bpd in 1987. Now primarily gas." },
+  { name:"Groningen Gas Field", country:"Netherlands", type:"gas", lat:53.33, lng:6.75, production:"Closed Oct 2024", reserves:"2,740 bcm (original) - largest in Europe", status:"closed", year:1959, note:"Permanently closed due to earthquake risk. Shaped EU gas standards." },
+  { name:"Forties Oil Field", country:"UK", type:"oil", lat:57.73, lng:0.97, production:"~30k bpd (declining)", reserves:"~4.2 billion barrels (original)", status:"active", year:1970, note:"One of largest UK North Sea fields." },
+  { name:"Brent Oil Field", country:"UK", type:"oil_and_gas", lat:61.05, lng:1.72, production:"Ceased 2011", reserves:"~4 billion barrels OE (original)", status:"decommissioning", year:1971, note:"Namesake of Brent crude benchmark. Decommissioning underway." },
+  { name:"Neptun Deep", country:"Romania", type:"gas", lat:43.88, lng:30.72, production:"Expected: 8 bcm/yr from 2027", reserves:"42-84 bcm", status:"development", year:2012, note:"Romania's largest offshore project. Could make Romania net gas exporter." },
+  { name:"Ana/Doina Fields", country:"Romania", type:"gas", lat:44.20, lng:30.50, production:"~1 bcm/yr", reserves:"Moderate", status:"active", year:1995, note:"First new Black Sea gas project in Romania." },
+  { name:"Urengoy Gas Field", country:"Russia", type:"gas", lat:65.97, lng:78.37, production:"~230 bcm/yr", reserves:"10,200 bcm (original)", status:"active", year:1966, note:"Third-largest natural gas field in the world. Source of Brotherhood pipeline." },
+  { name:"Yamburg Gas Field", country:"Russia", type:"gas", lat:68.00, lng:75.50, production:"~170 bcm/yr", reserves:"8,200 bcm (original)", status:"active", year:1969, note:"Major West Siberian gas field feeding Yamal-Europe and Brotherhood systems." },
+  { name:"Bovanenkovo Gas Field", country:"Russia", type:"gas", lat:70.36, lng:68.39, production:"~115 bcm/yr", reserves:"4,900 bcm", status:"active", year:2012, note:"Yamal Peninsula mega-field. Key source for Yamal-Europe pipeline." },
+  { name:"Shah Deniz Field", country:"Azerbaijan", type:"gas", lat:40.18, lng:49.47, production:"~24 bcm/yr (Phase 2)", reserves:"1,200 bcm", status:"active", year:1999, note:"Source of Southern Gas Corridor. Feeds SCP, TANAP, and TAP pipelines." },
+  { name:"Hassi R'Mel Gas Field", country:"Algeria", type:"gas", lat:32.93, lng:3.28, production:"~83 bcm/yr", reserves:"2,400 bcm remaining", status:"active", year:1956, note:"Largest gas field in Africa. Source of Transmed and Medgaz pipelines to Europe." },
+  { name:"Ormen Lange Field", country:"Norway", type:"gas", lat:62.83, lng:6.56, production:"~18 bcm/yr", reserves:"395 bcm", status:"active", year:2007, note:"Deepwater gas field. Source of Langeled pipeline to UK." },
+  { name:"Sleipner Field", country:"Norway", type:"gas_and_oil", lat:58.37, lng:1.91, production:"~8 bcm/yr gas", reserves:"Moderate", status:"active", year:1993, note:"Pioneer of carbon capture and storage. Feeds Langeled via Nyhamna." },
+  { name:"Tengiz Oil Field", country:"Kazakhstan", type:"oil", lat:46.15, lng:53.35, production:"~600k bpd", reserves:"6-9 billion barrels", status:"active", year:1979, note:"Giant oil field. Primary source for CPC pipeline to Novorossiysk." },
+  { name:"Leviathan Gas Field", country:"Israel", type:"gas", lat:33.10, lng:34.10, production:"~12 bcm/yr", reserves:"605 bcm", status:"active", year:2010, note:"Largest deepwater gas discovery in the Mediterranean. Proposed source for EastMed pipeline." },
+  { name:"Aphrodite Gas Field", country:"Cyprus", type:"gas", lat:34.00, lng:33.10, production:"Pre-development", reserves:"128 bcm", status:"development", year:2011, note:"Major Cypriot offshore gas discovery. Part of East Mediterranean gas province." },
+  { name:"Wafa/El Feel Oil Field", country:"Libya", type:"oil_and_gas", lat:29.50, lng:10.30, production:"Suspended", reserves:"Moderate", status:"suspended", year:2004, note:"Source field for GreenStream pipeline to Sicily." }];
+const fields=[{r:"S.America",n:"Vaca Muerta Formation",c:"Argentina",t:"shale",lat:-38.50,lng:-69.00,prod:"400k bpd oil + 2.5 Bcf/d gas",res:"16B bbl oil + 308 Tcf gas (TRR)",s:"active",y:2010,d:"World-class shale formation (~30,000 km²). Often compared to US Permian Basin. Rapid development since 2018. YPF, Shell, Chevron, ExxonMobil. Argentina's path to net energy exporter."},
+  {r:"S.America",n:"Pre-Salt Complex (Santos Basin)",c:"Brazil",t:"mix",lat:-24.50,lng:-42.50,prod:"~3.5M bpd",res:"Multiple giants (50+ billion bbl)",s:"active",y:2006,d:"Massive deepwater oil beneath salt layer. 75% of Brazil's production. Water depths 2,000-2,500m. Reservoirs 5,000-7,000m deep. Key fields: Lula, Búzios, Mero, Sapinhoá."},
+  {r:"S.America",n:"Orinoco Belt",c:"Venezuela",t:"heavy",lat:8.00,lng:-65.00,prod:"~400k bpd (severely underperforming)",res:"513 billion bbl (world's largest)",s:"limited",d:"World's largest known petroleum deposit. Extra-heavy crude (8-12 API). Production a fraction of potential due to PDVSA collapse, US sanctions, lack of investment. 1.3 trillion bbl OIP."},
+  {r:"S.America",n:"Bolívar Coastal Fields (Lake Maracaibo)",c:"Venezuela",t:"oil",lat:9.80,lng:-71.30,prod:"~250k bpd (declined from 3M peak)",res:"Historic mega-field",s:"limited",y:1917,d:"One of world's oldest continuously producing areas. Lake Maracaibo fields peaked 1960s-1970s. Currently far below potential due to PDVSA operational collapse."},
+  {r:"S.America",n:"Camisea Gas Field",c:"Peru",t:"gas",lat:-11.85,lng:-72.85,prod:"1.2 Bcf/d",res:"Significant — San Martín, Cashiriari, Pagoreni",s:"active",y:1986,d:"Peru's largest gas field in remote Ucayali jungle. Discovered by Shell 1986, developed 2004. Transformed Peru from gas importer to exporter (via Peru LNG). Controversial — near indigenous reserves."},
+  {r:"S.America",n:"Caño Limón Field",c:"Colombia",t:"oil",lat:7.13,lng:-71.43,prod:"~30k bpd (from 200k peak)",res:"Declining",s:"active",y:1983,d:"Oil field near Venezuelan border (Arauca). Was Colombia's largest in late 1980s. Pipeline has been attacked over 1,500 times. Operated by Ecopetrol (originally Oxy)."},
+  {r:"S.America",n:"Cusiana-Cupiagua Fields",c:"Colombia",t:"mix",lat:5.35,lng:-72.72,prod:"~60k bpd (from 420k peak)",res:"Declining",s:"active",y:1991,d:"Major Llanos foothills fields (Casanare). Discovered by BP. Led to OCENSA pipeline construction. Significant decline from 1999 peak."},
+  {r:"S.America",n:"Block 43 ITT (Yasuní)",c:"Ecuador",t:"oil",lat:-0.95,lng:-75.55,prod:"57k bpd (phase-down ordered)",res:"1.67 billion bbl",s:"winding",d:"Controversial block in Yasuní National Park — one of Earth's most biodiverse places. 2023 referendum ordered halt to extraction. Phase-down ongoing. Near uncontacted indigenous peoples."},
+  {r:"S.America",n:"Guyana Stabroek Block",c:"Guyana",t:"mix",lat:7.50,lng:-57.50,prod:"640k bpd (4 FPSOs)",res:"11.6 billion bbl recoverable",s:"active",y:2015,d:"ExxonMobil deepwater discovery transformed Guyana into fastest-growing oil producer globally. 30+ discoveries. Liza 1&2, Payara, Yellowtail producing. Uaru & Whiptail planned."},
+  // Source fields for pipelines that were missing markers
+  {r:"S.America",n:"Bolivian Gas Fields (Santa Cruz/Tarija)",c:"Bolivia",t:"gas",lat:-18.50,lng:-63.40,prod:"~1.2 Bcf/d (declining)",res:"Declining — was 26 Tcf",s:"limited",y:1960,d:"Bolivia's gas fields in Santa Cruz & Tarija departments. Feed GASBOL (to Brazil) and YABOG (to Argentina). Production declining significantly, threatening export contracts."},
+  {r:"S.America",n:"Noroeste Basin (Salta)",c:"Argentina",t:"gas",lat:-22.30,lng:-63.75,prod:"Moderate",res:"Mature basin",s:"active",y:1951,d:"Northwest Argentina gas basin (Salta, Jujuy). Feeds TGN pipeline system to Buenos Aires and NorAndino pipeline to Chile. Mature, conventional production."},
+  {r:"S.America",n:"Neuquén Basin (Conventional)",c:"Argentina",t:"mix",lat:-38.95,lng:-68.06,prod:"Legacy production + Vaca Muerta",res:"Conventional + unconventional",s:"active",y:1918,d:"Argentina's most productive hydrocarbon basin since 1918. Conventional fields plus the Vaca Muerta shale revolution. Source for TGS, TransAndino, and Néstor Kirchner pipelines."},
+  {r:"S.America",n:"San Jorge Basin (Patagonia)",c:"Argentina",t:"oil",lat:-45.87,lng:-67.48,prod:"~120k bpd",res:"Mature — Comodoro Rivadavia area",s:"active",y:1907,d:"Argentina's oldest oil-producing region (Comodoro Rivadavia, 1907). Feeds into TGS pipeline system. Mature, declining conventional fields. Pan American Energy main operator."},
+  {r:"S.America",n:"Lago Agrio / Oriente Fields",c:"Ecuador",t:"oil",lat:0.09,lng:-76.88,prod:"~500k bpd total Ecuador",res:"Amazon basin fields",s:"active",y:1967,d:"Ecuador's Amazon oil fields hub. Source for both SOTE and OCP trans-Andean pipelines. Includes Lago Agrio, Sacha, Shushufindi and dozens more fields."},
+  {r:"S.America",n:"Llanos Basin (Meta/Casanare)",c:"Colombia",t:"oil",lat:4.08,lng:-73.55,prod:"~350k bpd",res:"Multiple fields",s:"active",d:"Colombia's eastern Llanos plains. Major producing basin feeding the Oleoducto Central/Vasconia pipeline. Includes Castilla, Rubiales (declining), Apiay fields."},
+  {r:"S.America",n:"Coveñas Marine Terminal",c:"Colombia",t:"oil",lat:9.41,lng:-75.69,prod:"Export hub — 3 pipelines converge",res:"Terminal, not a field",s:"active",y:1969,d:"Colombia's main crude oil export terminal on the Caribbean coast. Endpoint of OCENSA, Oleoducto Central, and Caño Limón pipelines. All Colombian crude exports funnel here."},
+  {r:"S.America",n:"Trinidad Gas Fields",c:"Trinidad & Tobago",t:"gas",lat:10.50,lng:-61.20,prod:"~2.5 Bcf/d (declining)",res:"Mature offshore",s:"limited",d:"Offshore gas fields feeding Atlantic LNG. Production declining — supply shortfall forcing LNG to operate below capacity. East Coast Marine Area fields."},{r:"Africa",n:"Niger Delta Fields",c:"Nigeria",t:"mix",lat:5.30,lng:6.00,prod:"~1.2M bpd oil + gas",res:"Multiple billions bbl",s:"active",d:"Hundreds of onshore/offshore fields. Major environmental concerns."},
+  {r:"Africa",n:"Agbami Field",c:"Nigeria",t:"oil",lat:4.27,lng:4.77,prod:"200k bpd",res:"Deepwater (1460m)",s:"active",y:2008,d:"Deepwater FPSO. Chevron-operated."},
+  {r:"Africa",n:"Bonga Field",c:"Nigeria",t:"oil",lat:4.41,lng:4.16,prod:"200k bpd",res:"Deepwater (1000m)",s:"active",y:2005,d:"Shell deepwater. Bonga North expansion ongoing."},
+  {r:"Africa",n:"Akpo Field",c:"Nigeria",t:"oil",lat:4.06,lng:4.68,prod:"175k bpd",res:"Deepwater (1325m)",s:"active",y:2009,d:"TotalEnergies deepwater FPSO."},
+  {r:"Africa",n:"Hassi Messaoud",c:"Algeria",t:"oil",lat:31.68,lng:6.06,prod:"400k bpd",res:"Largest oil field in Africa",s:"active",y:1956,d:"Algeria's largest oil field. Saharan. Mature with EOR."},
+  {r:"Africa",n:"Hassi R'Mel",c:"Algeria",t:"gas",lat:32.93,lng:3.28,prod:"~8.5 Bcf/day",res:"85 Tcf - largest in Africa",s:"active",y:1956,d:"Hub of Algeria's gas network. Feeds all export routes."},
+  {r:"Africa",n:"Sharara Field",c:"Libya",t:"oil",lat:26.40,lng:12.70,prod:"300k bpd (when running)",res:"Murzuq Basin",s:"intermittent",d:"Libya's largest oil field. Frequently shut by armed groups."},
+  {r:"Africa",n:"El Feel (Elephant)",c:"Libya",t:"oil",lat:26.72,lng:12.00,prod:"130k bpd",res:"Murzuq Basin",s:"intermittent",d:"Major field near Sharara. Eni JV."},
+  {r:"Africa",n:"Jubilee Field",c:"Ghana",t:"oil",lat:4.55,lng:-2.80,prod:"100k bpd",res:"Deepwater (1100m)",s:"active",y:2010,d:"Ghana's first major deepwater discovery. Tullow Oil."},
+  {r:"Africa",n:"TEN Field",c:"Ghana",t:"oil",lat:4.47,lng:-2.98,prod:"60k bpd",res:"Deepwater (1300m)",s:"active",y:2016,d:"Adjacent to Jubilee. Tullow Oil."},
+  {r:"Africa",n:"Kingfisher",c:"Uganda",t:"oil",lat:0.80,lng:30.50,prod:"Expected 2026",res:"560M bbl",s:"development",d:"Lake Albert. CNOOC. Will feed EACOP."},
+  {r:"Africa",n:"Tilenga",c:"Uganda",t:"oil",lat:2.10,lng:31.30,prod:"Expected 2026",res:"750M bbl",s:"development",d:"TotalEnergies. Lake Albert cluster. Feeds EACOP."},
+  {r:"Africa",n:"Rovuma Area 1",c:"Mozambique",t:"gas",lat:-12.30,lng:42.10,prod:"Delayed",res:"75 Tcf",s:"delayed",d:"Massive gas. Onshore LNG suspended (insurgency). TotalEnergies."},
+  {r:"Africa",n:"Rovuma Area 4 (Coral)",c:"Mozambique",t:"gas",lat:-12.50,lng:42.50,prod:"3.4 mtpa FLNG",res:"85 Tcf",s:"active",y:2022,d:"Coral South FLNG operational. Eni."},
+  {r:"Africa",n:"Zohr Field",c:"Egypt",t:"gas",lat:31.90,lng:32.53,prod:"~3 Bcf/day",res:"30 Tcf",s:"active",y:2017,d:"Largest Mediterranean gas discovery. Eni."},
+  {r:"Africa",n:"Western Desert",c:"Egypt",t:"mix",lat:29.50,lng:28.00,prod:"Significant",res:"Multiple concessions",s:"active",d:"Mature oil & gas region. Apache, Eni, Shell."},
+  {r:"Africa",n:"GTA Field",c:"Senegal/Mauritania",t:"gas",lat:16.35,lng:-17.40,prod:"2.5 mtpa (Phase 1)",res:"15 Tcf",s:"development",d:"Cross-border deepwater. BP/Kosmos. First gas ~2025."},
+  {r:"Africa",n:"Sangomar Field",c:"Senegal",t:"oil",lat:14.00,lng:-17.55,prod:"100k bpd",res:"Deepwater",s:"active",y:2024,d:"Senegal's first oil. Woodside. FPSO Leopard."},
+  {r:"Africa",n:"Angola Block 17",c:"Angola",t:"oil",lat:-7.70,lng:11.50,prod:"350k bpd",res:"Deepwater (1400m)",s:"active",d:"TotalEnergies cluster: Girassol, Dalia, Pazflor, CLOV."},
+  {r:"Africa",n:"Angola Block 31",c:"Angola",t:"oil",lat:-8.20,lng:11.00,prod:"150k bpd",res:"Ultra-deepwater (2000m)",s:"active",d:"BP. PSVM FPSO. Among deepest in world."},
+  {r:"Africa",n:"Doba Basin",c:"Chad",t:"oil",lat:8.65,lng:16.85,prod:"~120k bpd",res:"Multiple fields",s:"active",y:2003,d:"Source of Chad-Cameroon pipeline. Consortium led by ExxonMobil."},
+  {r:"Africa",n:"Agadem Basin",c:"Niger",t:"oil",lat:14.50,lng:12.30,prod:"~110k bpd",res:"Agadem Rift Basin",s:"active",y:2011,d:"CNPC-operated. Source for Niger-Benin export pipeline."},
+  {r:"Africa",n:"Temane/Pande Fields",c:"Mozambique",t:"gas",lat:-23.58,lng:35.10,prod:"~500 TJ/day",res:"Onshore gas",s:"active",y:2004,d:"Onshore gas fields feeding Rompco pipeline to South Africa. Sasol."},
+  {r:"Africa",n:"Seme Terminal",c:"Benin",t:"oil",lat:6.37,lng:2.63,prod:"Export terminal",res:"N/A",s:"active",y:2024,d:"Marine export terminal for Niger-Benin pipeline. CNPC-built."},
+  {r:"Africa",n:"Tanga Port Terminal",c:"Tanzania",t:"oil",lat:-5.07,lng:39.10,prod:"Expected 2026",res:"Export terminal",s:"construction",d:"EACOP marine export terminal on Indian Ocean coast."},
+  {r:"Africa",n:"Wafa/Mellitah Complex",c:"Libya",t:"gas",lat:29.50,lng:10.30,prod:"Varies",res:"Wafa field + processing",s:"intermittent",d:"Gas processing hub and source of GreenStream pipeline to Italy. Eni/NOC."},
+  {r:"Africa",n:"Secunda (Sasol)",c:"South Africa",t:"gas",lat:-26.55,lng:29.17,prod:"Receives ~500 TJ/day",res:"Gas-to-liquids plant",s:"active",d:"Rompco pipeline destination. World's largest GTL complex."},
+  {r:"Africa",n:"Takoradi (Tema)",c:"Ghana",t:"gas",lat:4.88,lng:-1.75,prod:"WAGP endpoint",res:"Thermal power",s:"active",y:2011,d:"WAGP receiving terminal. Gas for power generation in Ghana."},{r:"Oceania",n:"North West Shelf",c:"Australia (WA)",t:"gas",lat:-19.60,lng:116.15,prod:"~36 bcm/yr gas",res:"40 Tcf",s:"active",y:1984,d:"Australia's original gas province. Feeds Karratha LNG. Woodside-operated. Mature but significant."},
+  {r:"Oceania",n:"Gorgon / Jansz-Io",c:"Australia (WA)",t:"gas",lat:-20.50,lng:114.70,prod:"LNG: 15.6 mtpa",res:"40 Tcf",s:"active",y:2016,d:"Massive fields feeding Gorgon LNG on Barrow Island. Chevron. ~US$54B mega-project."},
+  {r:"Oceania",n:"Wheatstone / Julimar",c:"Australia (WA)",t:"gas",lat:-19.80,lng:115.30,prod:"LNG: 8.9 mtpa",res:"12 Tcf",s:"active",y:2017,d:"Chevron. Feeds Wheatstone LNG near Onslow."},
+  {r:"Oceania",n:"Ichthys Field",c:"Australia (Browse)",t:"gas",lat:-12.80,lng:124.50,prod:"LNG: 8.9 mtpa",res:"12.8 Tcf",s:"active",y:2018,d:"INPEX. Gas piped 890 km to Darwin. Japan's largest overseas investment."},
+  {r:"Oceania",n:"Browse Basin (undeveloped)",c:"Australia",t:"gas",lat:-13.80,lng:123.00,prod:"Undeveloped",res:"15 Tcf",s:"appraisal",d:"Woodside. Proposed tie-back to NWS LNG. Long-delayed."},
+  {r:"Oceania",n:"Bass Strait (Gippsland)",c:"Australia (VIC)",t:"mix",lat:-38.80,lng:148.20,prod:"Declining",res:"Mature - multiple fields",s:"declining",y:1965,d:"Australia's most prolific historical province. ExxonMobil/BHP JV."},
+  {r:"Oceania",n:"Cooper Basin",c:"Australia (SA/QLD)",t:"mix",lat:-28.00,lng:140.00,prod:"Gas + oil",res:"Major onshore basin",s:"active",y:1963,d:"Moomba hub. Santos/Beach Energy. CCS project operational."},
+  {r:"Oceania",n:"Surat/Bowen CSG",c:"Australia (QLD)",t:"csg",lat:-26.50,lng:149.50,prod:"Feeds 3 LNG plants",res:"Vast - thousands of wells",s:"active",d:"Coal seam gas. Feeds Gladstone LNG precinct. Major water management challenges."},
+  {r:"Oceania",n:"Prelude Field",c:"Australia (Browse)",t:"gas",lat:-12.40,lng:123.90,prod:"3.6 mtpa (intermittent)",res:"3 Tcf",s:"intermittent",y:2018,d:"Shell FLNG - world's largest floating structure. Plagued by shutdowns."},
+  {r:"Oceania",n:"PNG Highlands (Hides/Kutubu)",c:"Papua New Guinea",t:"mix",lat:-6.00,lng:142.70,prod:"8.3 mtpa LNG equiv",res:"Multiple fields",s:"active",d:"Feeds PNG LNG. P'nyang under appraisal for Papua LNG."},
+  {r:"Oceania",n:"Maui Gas Field",c:"New Zealand",t:"gas",lat:-39.55,lng:173.25,prod:"Declining",res:"Largely depleted",s:"declining",y:1979,d:"NZ's largest historical gas field. Now largely depleted."},
+  {r:"Oceania",n:"Pohokura Gas Field",c:"New Zealand",t:"gas",lat:-39.12,lng:174.30,prod:"NZ's largest producing",res:"Moderate",s:"active",y:2006,d:"Currently NZ's largest producing gas field. Taranaki."},
+  {r:"Oceania",n:"Moomba Gas Hub",c:"Australia (SA)",t:"gas",lat:-28.10,lng:140.20,prod:"Processing hub",res:"Hub / junction",s:"active",y:1969,d:"Major pipeline junction. Cooper Basin processing hub for MAPS, MSP, and SWQP pipelines."},
+  {r:"Oceania",n:"Perth Demand Centre",c:"Australia (WA)",t:"gas",lat:-31.95,lng:115.86,prod:"Demand centre",res:"N/A",s:"active",d:"WA's main gas demand centre. End-point of DBNGP from Dampier."},
+  {r:"Oceania",n:"Sydney Demand Centre",c:"Australia (NSW)",t:"gas",lat:-33.84,lng:150.85,prod:"Demand centre",res:"N/A",s:"active",d:"NSW's main gas demand centre. Endpoint of Moomba-Sydney and Eastern Gas pipelines."},
+  {r:"Oceania",n:"Wallumbilla Hub",c:"Australia (QLD)",t:"gas",lat:-26.58,lng:149.18,prod:"Hub / junction",res:"Hub",s:"active",d:"Key east-coast gas hub and trading point. Junction for SWQP and QGP."},
+  {r:"Oceania",n:"Adelaide Demand Centre",c:"Australia (SA)",t:"gas",lat:-34.93,lng:138.60,prod:"Demand centre",res:"N/A",s:"active",d:"SA's main gas demand centre. Endpoint of Moomba-Adelaide Pipeline (MAPS)."},
+  {r:"Oceania",n:"Kalgoorlie Mining Hub",c:"Australia (WA)",t:"gas",lat:-30.75,lng:121.47,prod:"Mining demand",res:"N/A",s:"active",d:"Goldfields mining hub. Endpoint of Goldfields Gas Pipeline. Powers mining operations."},
+  {r:"Oceania",n:"Auckland Demand Centre",c:"New Zealand",t:"gas",lat:-36.85,lng:174.76,prod:"Demand centre",res:"N/A",s:"active",d:"NZ's largest city. Northern endpoint of Taranaki gas network."},
+  {r:"Oceania",n:"Wellington Demand Centre",c:"New Zealand",t:"gas",lat:-41.29,lng:174.78,prod:"Demand centre",res:"N/A",s:"active",d:"NZ capital. Southern endpoint of Taranaki gas network."},{r:"Asia",n:"Ghawar Field",c:"Saudi Arabia",t:"mix",lat:25.38,lng:49.23,prod:"3.8M bpd",res:"World's largest conventional oil field. ~50B+ bbl remaining",s:"active",y:1948},
+  {r:"Asia",n:"Safaniya Field",c:"Saudi Arabia",t:"oil",lat:28.25,lng:49.25,prod:"1.2M bpd",res:"World's largest offshore oil field",s:"active",y:1951},
+  {r:"Asia",n:"Khurais Field",c:"Saudi Arabia",t:"oil",lat:24.75,lng:48.30,prod:"1.5M bpd",res:"Megaproject (2009). Drone-attacked 2019",s:"active",y:1957},
+  {r:"Asia",n:"Burgan Field",c:"Kuwait",t:"oil",lat:29.07,lng:47.97,prod:"1.1M bpd",res:"World's 2nd largest. Set ablaze in 1991 Gulf War",s:"active",y:1938},
+  {r:"Asia",n:"Rumaila Field",c:"Iraq",t:"oil",lat:30.70,lng:47.35,prod:"1.5M bpd",res:"Iraq's largest. BP/PetroChina",s:"active",y:1953},
+  {r:"Asia",n:"West Qurna 1 & 2",c:"Iraq",t:"oil",lat:31.10,lng:47.20,prod:"900k bpd",res:"20B+ bbl. Last supergiant developed",s:"active",y:1973},
+  {r:"Asia",n:"Majnoon Field",c:"Iraq",t:"oil",lat:31.25,lng:47.55,prod:"240k bpd",res:"12-13B bbl. Marshland terrain",s:"active",y:1975},
+  {r:"Asia",n:"South Pars / North Dome",c:"Iran/Qatar",t:"gas",lat:26.50,lng:52.00,prod:"World's #1 gas field",res:"~1,800 Tcf. 8% of world gas reserves",s:"active",y:1971},
+  {r:"Asia",n:"Zakum / Upper Zakum",c:"UAE",t:"oil",lat:24.85,lng:53.90,prod:"750k bpd → 1M target",res:"~50B bbl complex",s:"active",y:1963},
+  {r:"Asia",n:"Kashagan Field",c:"Kazakhstan",t:"mix",lat:46.35,lng:51.60,prod:"400k bpd",res:"9-13B bbl. Extremely challenging H2S",s:"active",y:2000},
+  {r:"Asia",n:"Tengiz Field",c:"Kazakhstan",t:"oil",lat:46.22,lng:53.36,prod:"700k bpd → 850k",res:"6-9B bbl. Chevron-operated",s:"active",y:1979},
+  {r:"Asia",n:"Karachaganak",c:"Kazakhstan",t:"mix",lat:50.40,lng:51.40,prod:"350k bpd condensate",res:"16 Tcf gas + 2.4B bbl condensate",s:"active",y:1979},
+  {r:"Asia",n:"Galkynysh Field",c:"Turkmenistan",t:"gas",lat:37.10,lng:62.40,prod:"Anchors China exports",res:"21-27 Tcf. World's #2 gas field",s:"active",y:2006},
+  {r:"Asia",n:"Daqing Field",c:"China",t:"oil",lat:46.60,lng:125.02,prod:"~300k bpd (declining)",res:"China's largest. Peak 1.14M bpd (1976)",s:"declining",y:1959},
+  {r:"Asia",n:"Changqing Field",c:"China",t:"mix",lat:37.00,lng:108.00,prod:"~900k bpd equiv",res:"China's #1 producer since 2020",s:"active",y:1970},
+  {r:"Asia",n:"Shengli Field",c:"China",t:"oil",lat:37.50,lng:118.70,prod:"~400k bpd",res:"China's 2nd largest oil field",s:"active",y:1961},
+  {r:"Asia",n:"Bombay High",c:"India",t:"oil",lat:19.40,lng:71.40,prod:"~200k bpd",res:"India's largest offshore. Mature",s:"active",y:1974},
+  {r:"Asia",n:"Yadana Field",c:"Myanmar",t:"gas",lat:13.00,lng:96.50,prod:"Declining",res:"Andaman Sea. PTTEP-operated",s:"declining",y:1998},
+  {r:"Asia",n:"Shwe Gas Field",c:"Myanmar",t:"gas",lat:19.50,lng:93.50,prod:"Feeds China pipeline",res:"Bay of Bengal",s:"active",y:2004},
+  {r:"Asia",n:"Chayandinskoye Field",c:"Russia",t:"gas",lat:60.00,lng:113.00,prod:"Feeds Power of Siberia",res:"1.2 Tcf. Yakutia. Gazprom",s:"active",y:2014},
+  {r:"Asia",n:"Kovykta Field",c:"Russia",t:"gas",lat:55.93,lng:98.00,prod:"PoS feeder field",res:"1.9 Tcf. Irkutsk Oblast",s:"active",y:1987},
+  {r:"Asia",n:"Tarim Basin (Kela-2)",c:"China",t:"gas",lat:41.00,lng:84.00,prod:"Feeds West-East 1",res:"Major tight-sand gas. Tarim Basin complex",s:"active",y:1998},
+  {r:"Asia",n:"Kirkuk Field",c:"Iraq",t:"oil",lat:35.47,lng:44.39,prod:"~450k bpd",res:"Supergiant. ~9B bbl remaining. Disputed territory",s:"active",y:1927},
+  {r:"Asia",n:"Abqaiq Processing",c:"Saudi Arabia",t:"oil",lat:25.94,lng:49.68,prod:"Hub: ~7M bpd processed",res:"World's largest oil processing facility. Drone-attacked 2019",s:"active",y:1945},
+  {r:"Asia",n:"Atyrau Hub",c:"Kazakhstan",t:"oil",lat:47.11,lng:51.92,prod:"Pipeline hub",res:"Caspian export hub. CPC & KazChina origins",s:"active",y:1999},
+  {r:"Asia",n:"Taishet Junction",c:"Russia",t:"oil",lat:55.93,lng:98.00,prod:"ESPO origin",res:"Pipeline junction linking W. & E. Siberian fields",s:"active",y:2009},
+  {r:"Asia",n:"Kozmino Terminal",c:"Russia",t:"oil",lat:42.77,lng:133.05,prod:"~1.6M bpd export",res:"ESPO Pacific terminus. Major crude export port",s:"active",y:2009},
+  {r:"Asia",n:"Ceyhan Terminal",c:"Turkey",t:"oil",lat:36.88,lng:35.95,prod:"Export terminal",res:"BTC + Kirkuk-Ceyhan terminus. Mediterranean export hub",s:"active",y:1977},
+  {r:"Asia",n:"Horgos Gas Hub",c:"China",t:"gas",lat:44.21,lng:80.42,prod:"Central Asian gas entry",res:"Entry point for Lines A/B/C/D. Connects to West-East system",s:"active",y:2009},
+  {r:"Asia",n:"South Yolotan (Galkynysh West)",c:"Turkmenistan",t:"gas",lat:37.60,lng:61.83,prod:"Feeds TAPI",res:"Part of Galkynysh mega-complex",s:"active",y:2006},{r:"N.America",n:"Permian Basin",c:"USA (TX/NM)",t:"mix",lat:31.90,lng:-102.90,prod:"6.2M bpd oil + gas",res:"World's most prolific basin. 75B+ bbl produced",s:"active",d:"Largest US producing basin. Multiple stacked plays (Wolfcamp, Bone Spring, Spraberry)."},
+  {r:"N.America",n:"Eagle Ford Shale",c:"USA (TX)",t:"mix",lat:28.80,lng:-98.50,prod:"1.1M bpd oil",res:"Major tight oil play south of San Antonio",s:"active",d:"Second-largest US tight oil play."},
+  {r:"N.America",n:"Bakken Formation",c:"USA (ND)",t:"oil",lat:48.00,lng:-103.00,prod:"1.15M bpd",res:"Williston Basin. Horizontal drilling revolution",s:"active",d:"Kick-started the US shale revolution."},
+  {r:"N.America",n:"Marcellus Shale",c:"USA (Appalachian)",t:"gas",lat:40.50,lng:-78.50,prod:"27 Bcf/d gas",res:"Largest US gas play. ~500 Tcf est.",s:"active",d:"Transformed US into world's #1 gas producer."},
+  {r:"N.America",n:"Utica Shale",c:"USA (OH/WV/PA)",t:"gas",lat:39.80,lng:-81.00,prod:"7.5 Bcf/d",res:"Deeper play beneath Marcellus",s:"active",d:"Growing NGL-rich gas production."},
+  {r:"N.America",n:"Haynesville Shale",c:"USA (LA/TX)",t:"gas",lat:32.50,lng:-93.50,prod:"14 Bcf/d",res:"Major gas play. Close to Gulf LNG",s:"active",d:"Key feedstock for LNG exports."},
+  {r:"N.America",n:"Gulf of Mexico Deepwater",c:"USA",t:"mix",lat:27.50,lng:-89.50,prod:"1.9M bpd",res:"Multiple platforms: Thunder Horse, Mars-Ursa, Atlantis",s:"active",d:"Major deepwater province. ~15% of US production."},
+  {r:"N.America",n:"Prudhoe Bay",c:"USA (Alaska)",t:"mix",lat:70.26,lng:-148.72,prod:"240k bpd (declining)",res:"Largest US oil field. Peak 1.5M bpd (1987)",s:"declining",d:"Connected to TAPS. Running at ~15% of peak."},
+  {r:"N.America",n:"Athabasca Oil Sands",c:"Canada (Alberta)",t:"sands",lat:57.00,lng:-111.50,prod:"3.4M bpd",res:"Largest deposit globally. 166B bbl proven",s:"active",d:"Mining + in-situ (SAGD). Environmental concerns."},
+  {r:"N.America",n:"Cantarell Complex",c:"Mexico",t:"oil",lat:19.90,lng:-92.10,prod:"110k bpd (severe decline)",res:"Was 2M bpd in 2004. Collapsed production",s:"declining",d:"Once world's 2nd largest. Dramatic decline."},
+  {r:"N.America",n:"Ku-Maloob-Zaap",c:"Mexico",t:"oil",lat:19.50,lng:-92.50,prod:"620k bpd",res:"Mexico's largest current producer",s:"active",d:"Pemex-operated. Bay of Campeche."},
+  {r:"N.America",n:"Hibernia Field",c:"Canada (NL)",t:"oil",lat:46.75,lng:-48.78,prod:"85k bpd (declining)",res:"Grand Banks. GBS platform",s:"declining",d:"Canada's largest offshore. Gravity-based structure."},
+  {r:"N.America",n:"Edmonton/Alberta Hub",c:"Canada (AB)",t:"mix",lat:53.54,lng:-113.49,prod:"Hub: 3.4M+ bpd throughput",res:"Major pipeline hub. Origin of Keystone, TMX, Enbridge",s:"active",d:"Central collection point for oil sands and WCSB production. Feeds all major southbound and westbound pipelines."},
+  {r:"N.America",n:"Cushing Hub",c:"USA (OK)",t:"oil",lat:35.98,lng:-96.77,prod:"Hub: ~400k bbl storage",res:"Pipeline crossroads of the world. WTI pricing point",s:"active",d:"Key crude oil storage and pipeline interchange. Sets WTI benchmark price."},
+  {r:"N.America",n:"Henry Hub",c:"USA (LA)",t:"gas",lat:30.08,lng:-93.40,prod:"Hub: US gas benchmark",res:"Sabine Pipe Line hub. NYMEX pricing point",s:"active",d:"US natural gas pricing benchmark. Connected to 13 pipelines. Near Erath, Louisiana."},
+  {r:"N.America",n:"LOOP Terminal",c:"USA (LA)",t:"oil",lat:28.88,lng:-90.03,prod:"Hub: 1.2M bpd capacity",res:"Only US deepwater oil port. 50+ mi offshore",s:"active",d:"Louisiana Offshore Oil Port. Handles VLCCs. Connected to Capline and other Gulf systems."},
+  {r:"N.America",n:"Patoka Hub",c:"USA (IL)",t:"oil",lat:38.76,lng:-89.07,prod:"Hub: major interchange",res:"Southern Illinois pipeline crossroads",s:"active",d:"Key intersection of Capline, DAPL, and other pipelines. Connects Midwest to Gulf Coast."},
+  {r:"N.America",n:"Houston Refinery Complex",c:"USA (TX)",t:"oil",lat:29.76,lng:-95.37,prod:"Hub: 2.7M bpd refining",res:"Largest US refining center. 10+ refineries",s:"active",d:"Texas Gulf Coast refining corridor. Origin of Colonial Pipeline. Destination for many crude pipelines."},
+  {r:"N.America",n:"Corpus Christi Export Hub",c:"USA (TX)",t:"mix",lat:27.80,lng:-97.40,prod:"Hub: major crude/gas export",res:"Growing export terminal complex",s:"active",d:"Major crude oil and LNG export point. Destination for EPIC, Gray Oak, Cactus II, and Transco pipelines."},
+  {r:"N.America",n:"Valdez Marine Terminal",c:"USA (AK)",t:"oil",lat:61.13,lng:-146.35,prod:"Terminal: 480k bpd",res:"TAPS southern terminus. Prince William Sound",s:"active",d:"Trans-Alaska Pipeline endpoint. Crude loaded onto tankers for West Coast refineries."},
+  {r:"N.America",n:"Dawn Hub",c:"Canada (ON)",t:"gas",lat:42.67,lng:-81.90,prod:"Hub: 8+ Bcf/d throughput",res:"Eastern Canada gas trading hub",s:"active",d:"Major natural gas storage and trading hub in Ontario. Intersection of multiple pipelines including Rover and TC Mainline."},
+  {r:"N.America",n:"Agua Dulce Hub",c:"USA (TX)",t:"gas",lat:27.78,lng:-97.91,prod:"Hub: 5+ Bcf/d",res:"South Texas gas pipeline hub",s:"active",d:"Key gas pipeline interchange near Corpus Christi. Connects Permian gas to Gulf Coast LNG and Mexico exports."},
+  {r:"N.America",n:"Katy Hub",c:"USA (TX)",t:"gas",lat:29.79,lng:-95.82,prod:"Hub: major gas interchange",res:"Houston-area gas trading point",s:"active",d:"Natural gas trading and pipeline hub west of Houston. Terminus of Permian Highway Pipeline."},
+  {r:"N.America",n:"Montney Formation",c:"Canada (BC/AB)",t:"gas",lat:55.76,lng:-120.24,prod:"8+ Bcf/d gas + condensate",res:"Canada's largest gas play. 449 Tcf est.",s:"active",d:"Massive unconventional gas play. Feeds Coastal GasLink, NGTL, and Alliance pipelines."}];
+
+// ===== ALL LNG =====
+const euLNG=[{ name:"South Hook LNG", country:"UK (Wales)", lat:51.69, lng:-5.06, capacity:"21 bcm/yr", status:"active", year:2009, operator:"QatarEnergy/ExxonMobil" },
+  { name:"Dragon LNG", country:"UK (Wales)", lat:51.68, lng:-5.02, capacity:"7.6 bcm/yr", status:"active", year:2009, operator:"Shell" },
+  { name:"Grain LNG", country:"UK", lat:51.45, lng:0.72, capacity:"19.5 bcm/yr", status:"active", year:2005, operator:"National Grid" },
+  { name:"Gate LNG (Rotterdam)", country:"Netherlands", lat:51.95, lng:4.14, capacity:"16 bcm/yr", status:"active", year:2011, operator:"Gasunie/Vopak" },
+  { name:"Zeebrugge LNG", country:"Belgium", lat:51.33, lng:3.18, capacity:"9 bcm/yr", status:"active", year:1987, operator:"Fluxys" },
+  { name:"Dunkerque LNG", country:"France", lat:51.04, lng:2.16, capacity:"13 bcm/yr", status:"active", year:2017, operator:"TotalEnergies" },
+  { name:"Fos-sur-Mer LNG", country:"France", lat:43.40, lng:4.93, capacity:"16.5 bcm/yr", status:"active", year:1972, operator:"Elengy/Engie" },
+  { name:"Barcelona LNG", country:"Spain", lat:41.35, lng:2.15, capacity:"17 bcm/yr", status:"active", year:1969, operator:"Enagas" },
+  { name:"Huelva LNG", country:"Spain", lat:37.26, lng:-6.95, capacity:"11.8 bcm/yr", status:"active", year:1988, operator:"Enagas" },
+  { name:"Cartagena LNG", country:"Spain", lat:37.58, lng:-0.96, capacity:"11.8 bcm/yr", status:"active", year:1989, operator:"Enagas" },
+  { name:"Bilbao LNG", country:"Spain", lat:43.35, lng:-3.05, capacity:"7 bcm/yr", status:"active", year:2003, operator:"BBG" },
+  { name:"Sines LNG", country:"Portugal", lat:37.93, lng:-8.87, capacity:"7.6 bcm/yr", status:"active", year:2003, operator:"REN Atlantico" },
+  { name:"Panigaglia LNG", country:"Italy", lat:44.07, lng:9.83, capacity:"3.5 bcm/yr", status:"active", year:1971, operator:"Snam" },
+  { name:"Adriatic LNG (Rovigo)", country:"Italy", lat:45.09, lng:12.60, capacity:"8 bcm/yr", status:"active", year:2009, operator:"ExxonMobil/QatarEnergy" },
+  { name:"OLT Toscana FSRU", country:"Italy", lat:43.37, lng:10.12, capacity:"3.75 bcm/yr", status:"active", year:2013, operator:"OLT" },
+  { name:"Piombino FSRU", country:"Italy", lat:42.93, lng:10.52, capacity:"5 bcm/yr", status:"active", year:2023, operator:"Snam" },
+  { name:"Ravenna FSRU", country:"Italy", lat:44.38, lng:12.50, capacity:"5 bcm/yr", status:"active", year:2024, operator:"Snam" },
+  { name:"Revithoussa LNG", country:"Greece", lat:37.93, lng:23.52, capacity:"7 bcm/yr", status:"active", year:2000, operator:"DESFA" },
+  { name:"Alexandroupolis FSRU", country:"Greece", lat:40.80, lng:26.00, capacity:"5.5 bcm/yr", status:"active", year:2023, operator:"Gastrade" },
+  { name:"Klaipeda FSRU", country:"Lithuania", lat:55.72, lng:21.13, capacity:"4 bcm/yr", status:"active", year:2014, operator:"KN Energies" },
+  { name:"Swinoujscie LNG", country:"Poland", lat:53.92, lng:14.26, capacity:"6.2 bcm/yr", status:"active", year:2016, operator:"Polskie LNG" },
+  { name:"Inkoo FSRU", country:"Finland", lat:60.05, lng:24.00, capacity:"4.2 bcm/yr", status:"active", year:2023, operator:"Gasgrid Finland" },
+  { name:"Krk LNG", country:"Croatia", lat:45.22, lng:14.55, capacity:"2.9 bcm/yr", status:"active", year:2021, operator:"LNG Croatia" },
+  { name:"Wilhelmshaven FSRU", country:"Germany", lat:53.51, lng:8.14, capacity:"5 bcm/yr", status:"active", year:2022, operator:"Uniper", note:"Germany's first LNG terminal, fast-tracked post-2022" },
+  { name:"Brunsbuttel FSRU", country:"Germany", lat:53.89, lng:9.14, capacity:"5 bcm/yr", status:"active", year:2023, operator:"RWE" },
+  { name:"Lubmin FSRU", country:"Germany", lat:54.14, lng:13.67, capacity:"5.2 bcm/yr", status:"active", year:2023, operator:"Deutsche ReGas", note:"Near former Nord Stream landfall" },
+  { name:"Stade FSRU", country:"Germany", lat:53.60, lng:9.47, capacity:"5 bcm/yr", status:"active", year:2024, operator:"Hanseatic Energy Hub" }];
+const lngs=[{r:"S.America",n:"Atlantic LNG (Point Fortin)",c:"Trinidad & Tobago",lat:10.16,lng:-61.67,cap:"14.8 mtpa (4 trains)",s:"active",y:1999,d:"Largest LNG in the Americas by history. Operating below capacity due to declining domestic gas. Exports to US, Europe, Latin America."},
+  {r:"S.America",n:"Peru LNG (Melchorita)",c:"Peru",lat:-13.16,lng:-76.33,cap:"4.45 mtpa",s:"active",y:2010,d:"South America's first Pacific coast LNG export. Fed by Camisea gas via 408 km trans-Andean pipeline. Exports to Asia, Spain, Mexico."},{r:"S.America",n:"Guanabara Bay FSRU",c:"Brazil",lat:-22.81,lng:-43.09,cap:"20 MMm³/d",s:"active",y:2009,d:"Brazil's first LNG import. FSRU in Guanabara Bay near Rio de Janeiro. Supplements pipeline gas for seasonal demand peaks."},
+  {r:"S.America",n:"Pecém FSRU",c:"Brazil",lat:-3.53,lng:-38.81,cap:"7 MMm³/d",s:"active",y:2008,d:"FSRU at Port of Pecém, northeastern Brazil. Serves gas-short northeast region for power generation."},
+  {r:"S.America",n:"Bahia FSRU",c:"Brazil",lat:-12.89,lng:-38.50,cap:"14 MMm³/d",s:"active",y:2014,d:"FSRU in Bay of All Saints near Salvador. Supplements gas for northeast power generation."},
+  {r:"S.America",n:"Porto Alegre FSRU",c:"Brazil",lat:-30.03,lng:-51.10,cap:"5 MMm³/d",s:"planned",d:"Planned/intermittent FSRU at southern Brazil port for Rio Grande do Sul gas market."},
+  {r:"S.America",n:"Escobar FSRU (GNL Escobar)",c:"Argentina",lat:-34.35,lng:-58.78,cap:"17.8 MMm³/d",s:"active",y:2011,d:"Argentina's primary LNG import. Paraná River near Buenos Aires. Seasonal winter use declining as Vaca Muerta grows & GPNK pipeline comes online."},
+  {r:"S.America",n:"Bahía Blanca GNL",c:"Argentina",lat:-38.72,lng:-62.27,cap:"10 MMm³/d",s:"active",y:2008,d:"Argentina's first LNG import. Seasonal use declining due to Vaca Muerta growth."},
+  {r:"S.America",n:"GNL Quintero",c:"Chile",lat:-32.77,lng:-71.53,cap:"10 MMm³/d",s:"active",y:2009,d:"Chile's main LNG import. Onshore regasification at Quintero Bay. Built after Argentina curtailed gas exports in 2004."},
+  {r:"S.America",n:"GNL Mejillones",c:"Chile",lat:-23.10,lng:-70.45,cap:"5.5 MMm³/d",s:"active",y:2010,d:"LNG import in Atacama mining region. FSRU serving power for Antofagasta mining operations."},
+  {r:"S.America",n:"SPEC LNG (Cartagena FSRU)",c:"Colombia",lat:10.37,lng:-75.51,cap:"5.6 MMm³/d",s:"active",y:2016,d:"FSRU at Cartagena, Caribbean coast. Supplements declining Guajira gas fields. Receives LNG from Trinidad & US Gulf Coast."},{r:"Africa",n:"NLNG Bonny Island",c:"Nigeria",lat:4.41,lng:7.15,cap:"22 mtpa (6 trains)",s:"active",y:1999,d:"Africa's largest LNG. Train 7 under construction."},
+  {r:"Africa",n:"Arzew LNG Complex",c:"Algeria",lat:35.80,lng:-0.27,cap:"18.5 mtpa",s:"active",y:1978,d:"Multiple plants near Oran. One of oldest LNG sites."},
+  {r:"Africa",n:"Skikda LNG",c:"Algeria",lat:36.87,lng:6.91,cap:"5 mtpa",s:"active",y:1972,d:"Rebuilt after 2004 explosion."},
+  {r:"Africa",n:"Idku LNG (Egyptian LNG)",c:"Egypt",lat:31.35,lng:30.30,cap:"7.2 mtpa",s:"active",y:2005,d:"Two-train near Alexandria. Below capacity recently."},
+  {r:"Africa",n:"Damietta LNG",c:"Egypt",lat:31.42,lng:31.83,cap:"5 mtpa",s:"limited",y:2005,d:"Was idled 2012-2021. Intermittent operations."},
+  {r:"Africa",n:"Angola LNG (Soyo)",c:"Angola",lat:-6.12,lng:12.35,cap:"5.2 mtpa",s:"active",y:2013,d:"Single-train. Chevron-led. Stable since 2016."},
+  {r:"Africa",n:"EG LNG (Bioko Island)",c:"Equatorial Guinea",lat:3.72,lng:8.72,cap:"3.7 mtpa",s:"active",y:2007,d:"Marathon Oil. Also methanol plant."},
+  {r:"Africa",n:"Kribi FLNG (Hilli Episeyo)",c:"Cameroon",lat:2.85,lng:9.70,cap:"2.4 mtpa",s:"active",y:2018,d:"First FLNG in Africa. Golar/Perenco."},
+  {r:"Africa",n:"Coral South FLNG",c:"Mozambique",lat:-12.50,lng:42.50,cap:"3.4 mtpa",s:"active",y:2022,d:"Rovuma Basin Area 4. Eni. Output to BP."},
+  {r:"Africa",n:"GTA FLNG (Phase 1)",c:"Senegal/Mauritania",lat:16.35,lng:-17.40,cap:"2.5 mtpa",s:"commissioning",d:"BP/Kosmos. Gimi FLNG vessel. First gas ~2025."},
+  {r:"Africa",n:"Area 1 Onshore LNG",c:"Mozambique",lat:-10.75,lng:40.38,cap:"12.88 mtpa (planned)",s:"suspended",d:"TotalEnergies. Suspended 2021 - insurgency. Force majeure."},
+  {r:"Africa",n:"Tanzania LNG",c:"Tanzania",lat:-9.87,lng:39.65,cap:"10 mtpa (proposed)",s:"proposed",d:"Proposed Lindi. Equinor/Shell. No FID."},{r:"Oceania",n:"NWS LNG (Karratha)",c:"Australia",lat:-20.73,lng:116.77,cap:"16.9 mtpa (5 trains)",s:"active",y:1989,d:"Australia's first LNG. Woodside. Seeking backfill gas."},
+  {r:"Oceania",n:"Gorgon LNG (Barrow Is.)",c:"Australia",lat:-20.79,lng:115.39,cap:"15.6 mtpa (3 trains)",s:"active",y:2016,d:"Chevron. On nature reserve. US$54B. Includes CCS."},
+  {r:"Oceania",n:"Wheatstone LNG (Onslow)",c:"Australia",lat:-21.76,lng:114.97,cap:"8.9 mtpa (2 trains)",s:"active",y:2017,d:"Chevron. Also domestic gas plant."},
+  {r:"Oceania",n:"Ichthys LNG (Darwin)",c:"Australia",lat:-12.52,lng:130.89,cap:"8.9 mtpa (2 trains)",s:"active",y:2018,d:"INPEX. 890 km subsea pipe from field."},
+  {r:"Oceania",n:"Darwin LNG",c:"Australia",lat:-12.49,lng:130.85,cap:"3.7 mtpa (1 train)",s:"active",y:2006,d:"Santos. Being backfilled by Barossa field."},
+  {r:"Oceania",n:"GLNG (Curtis Is.)",c:"Australia",lat:-23.78,lng:151.40,cap:"7.8 mtpa (2 trains)",s:"active",y:2015,d:"Santos. CSG-to-LNG."},
+  {r:"Oceania",n:"QCLNG (Curtis Is.)",c:"Australia",lat:-23.77,lng:151.40,cap:"8.5 mtpa (2 trains)",s:"active",y:2015,d:"Shell/QGC. World's first CSG-to-LNG."},
+  {r:"Oceania",n:"APLNG (Curtis Is.)",c:"Australia",lat:-23.76,lng:151.40,cap:"9.0 mtpa (2 trains)",s:"active",y:2016,d:"ConocoPhillips/Origin. Largest Gladstone LNG."},
+  {r:"Oceania",n:"Prelude FLNG",c:"Australia",lat:-12.40,lng:123.90,cap:"3.6 mtpa",s:"intermittent",y:2018,d:"Shell. World's largest floating structure (488m). Reliability issues."},
+  {r:"Oceania",n:"PNG LNG",c:"Papua New Guinea",lat:-8.30,lng:147.02,cap:"8.3 mtpa (2 trains)",s:"active",y:2014,d:"ExxonMobil. Consistently overperforms nameplate capacity."},
+  {r:"Oceania",n:"Papua LNG",c:"Papua New Guinea",lat:-8.32,lng:147.00,cap:"5.4 mtpa (planned)",s:"construction",d:"TotalEnergies. FID 2024. Expected 2028."},{r:"Asia",n:"Sodegaura LNG",c:"Japan",lat:35.40,lng:139.92,cap:"12.5 mtpa",y:1973},{r:"Asia",n:"Futtsu LNG",c:"Japan",lat:35.33,lng:139.85,cap:"11 mtpa",y:1985},
+  {r:"Asia",n:"Sakai/Senboku LNG",c:"Japan",lat:34.55,lng:135.45,cap:"9 mtpa",y:1972},{r:"Asia",n:"Hibiki LNG",c:"Japan",lat:33.97,lng:130.85,cap:"3 mtpa",y:2014},
+  {r:"Asia",n:"Incheon LNG",c:"South Korea",lat:37.44,lng:126.60,cap:"46 mtpa",y:1986},{r:"Asia",n:"Tongyeong LNG",c:"South Korea",lat:34.83,lng:128.42,cap:"14 mtpa",y:2002},
+  {r:"Asia",n:"Gwangyang LNG",c:"South Korea",lat:34.93,lng:127.70,cap:"10 mtpa",y:2005},{r:"Asia",n:"Samcheok LNG",c:"South Korea",lat:37.45,lng:129.17,cap:"8 mtpa",y:2014},
+  {r:"Asia",n:"Dapeng LNG",c:"China",lat:22.60,lng:114.45,cap:"12 mtpa",y:2006},{r:"Asia",n:"Yangshan LNG",c:"China",lat:30.60,lng:121.97,cap:"6.5 mtpa",y:2009},
+  {r:"Asia",n:"Dalian LNG",c:"China",lat:39.00,lng:121.70,cap:"6 mtpa",y:2011},{r:"Asia",n:"Rudong LNG",c:"China",lat:32.30,lng:121.20,cap:"6.5 mtpa",y:2011},
+  {r:"Asia",n:"Tangshan LNG",c:"China",lat:39.20,lng:119.10,cap:"10 mtpa",y:2013},{r:"Asia",n:"Tianjin LNG",c:"China",lat:38.97,lng:117.78,cap:"6 mtpa",y:2014},
+  {r:"Asia",n:"Zhoushan LNG",c:"China",lat:30.00,lng:122.20,cap:"3 mtpa",y:2018},
+  {r:"Asia",n:"Dahej LNG",c:"India",lat:21.70,lng:72.57,cap:"17.5 mtpa",y:2004},{r:"Asia",n:"Hazira LNG",c:"India",lat:21.10,lng:72.63,cap:"5 mtpa",y:2005},
+  {r:"Asia",n:"Dabhol/Ratnagiri LNG",c:"India",lat:17.06,lng:73.18,cap:"5 mtpa",y:2013},{r:"Asia",n:"Kochi LNG",c:"India",lat:9.96,lng:76.23,cap:"5 mtpa",y:2013},
+  {r:"Asia",n:"Ennore/Chettinad LNG",c:"India",lat:13.25,lng:80.32,cap:"5 mtpa",y:2019},
+  {r:"Asia",n:"Taichung LNG",c:"Taiwan",lat:24.28,lng:120.52,cap:"7.8 mtpa",y:1990},{r:"Asia",n:"Yung-An LNG",c:"Taiwan",lat:22.82,lng:120.23,cap:"10.5 mtpa",y:2009},
+  {r:"Asia",n:"Map Ta Phut LNG",c:"Thailand",lat:12.68,lng:101.15,cap:"11.5 mtpa",y:2011},
+  {r:"Asia",n:"Jurong Island LNG",c:"Singapore",lat:1.27,lng:103.70,cap:"11 mtpa",y:2013},
+  {r:"Asia",n:"Port Qasim LNG",c:"Pakistan",lat:24.78,lng:67.35,cap:"7.5 mtpa",y:2015},
+  {r:"Asia",n:"Moheshkhali FSRU",c:"Bangladesh",lat:21.50,lng:91.90,cap:"3.75 mtpa",y:2018},{r:"Asia",n:"Ras Laffan LNG (QatarEnergy)",c:"Qatar",lat:25.92,lng:51.53,cap:"77 mtpa → 126 mtpa (NFE+NFS expansion)",y:1996,d:"World's largest LNG complex. North Field Expansion adding ~49 mtpa."},
+  {r:"Asia",n:"Bintulu LNG (MLNG)",c:"Malaysia",lat:3.22,lng:113.05,cap:"30 mtpa (9 trains)",y:1983,d:"One of the world's largest LNG complexes. PETRONAS."},
+  {r:"Asia",n:"Bontang LNG",c:"Indonesia",lat:0.10,lng:117.50,cap:"22.5 mtpa (8 trains)",y:1977,d:"Indonesia's first LNG. Declining feed gas."},
+  {r:"Asia",n:"Tangguh LNG",c:"Indonesia",lat:-2.76,lng:132.75,cap:"11.4 mtpa (3 trains)",y:2009,d:"Papua Barat. BP-operated. Train 3 added 2023."},
+  {r:"Asia",n:"Brunei LNG",c:"Brunei",lat:5.00,lng:115.08,cap:"7.2 mtpa",y:1972,d:"One of world's oldest LNG plants."},
+  {r:"Asia",n:"Oman LNG (Qalhat)",c:"Oman",lat:22.95,lng:59.55,cap:"10.4 mtpa",y:2000,d:"Three trains. Shell-operated."},
+  {r:"Asia",n:"Das Island LNG (ADGAS)",c:"UAE",lat:25.15,lng:52.87,cap:"5.8 mtpa",y:1977,d:"Middle East's second LNG. ADNOC."},
+  {r:"Asia",n:"Sakhalin-2 LNG",c:"Russia",lat:46.63,lng:142.10,cap:"10.9 mtpa",y:2009,d:"Russia's first LNG. Gazprom took over from Shell 2022."},
+  {r:"Asia",n:"Arctic LNG 2",c:"Russia",lat:71.30,lng:72.40,cap:"19.8 mtpa (3 trains)",y:2024,d:"Novatek. Train 1 started. Sanctions limiting shipping."},
+  {r:"Asia",n:"PFLNG Satu (FLNG)",c:"Malaysia",lat:5.80,lng:113.40,cap:"1.2 mtpa",y:2016,d:"PETRONAS. World's first FLNG to deliver cargo."},{r:"N.America",n:"Sabine Pass LNG",c:"USA (LA)",lat:29.76,lng:-93.86,cap:"30 mtpa (6 trains)",s:"active",y:2016,d:"Cheniere Energy. First US LNG export. World's 2nd largest."},
+  {r:"N.America",n:"Cameron LNG",c:"USA (LA)",lat:29.77,lng:-93.30,cap:"13.5 mtpa (3 trains)",s:"active",y:2019,d:"Sempra Energy."},
+  {r:"N.America",n:"Freeport LNG",c:"USA (TX)",lat:28.94,lng:-95.30,cap:"15 mtpa (3 trains)",s:"active",y:2019,d:"Fire in 2022 caused 8-month shutdown."},
+  {r:"N.America",n:"Corpus Christi LNG",c:"USA (TX)",lat:27.83,lng:-97.25,cap:"15 mtpa (+Stage 3 building)",s:"active",y:2019,d:"Cheniere. Stage 3 adding 10+ mtpa."},
+  {r:"N.America",n:"Elba Island LNG",c:"USA (GA)",lat:32.08,lng:-81.05,cap:"2.5 mtpa",s:"active",y:2019,d:"Small-scale modular. Kinder Morgan."},
+  {r:"N.America",n:"Calcasieu Pass LNG",c:"USA (LA)",lat:29.76,lng:-93.35,cap:"10 mtpa",s:"active",y:2022,d:"Venture Global. Fast-track construction."},
+  {r:"N.America",n:"Plaquemines LNG",c:"USA (LA)",lat:29.40,lng:-89.50,cap:"20 mtpa (building)",s:"construction",d:"Venture Global. First phase loading 2024."},
+  {r:"N.America",n:"Golden Pass LNG",c:"USA (TX)",lat:29.77,lng:-93.93,cap:"18 mtpa (building)",s:"construction",d:"QatarEnergy/ExxonMobil. Expected 2026-2027."},
+  {r:"N.America",n:"LNG Canada (Kitimat)",c:"Canada (BC)",lat:54.05,lng:-128.68,cap:"14 mtpa",s:"active",y:2025,d:"Canada's first LNG export. Shell-led. Fed by Coastal GasLink."},
+  {r:"N.America",n:"Costa Azul LNG",c:"Mexico (BC)",lat:32.05,lng:-116.87,cap:"3.25 mtpa (conversion)",s:"active",y:2024,d:"Sempra. Converted from import to export."},{r:"N.America",n:"Canaport LNG",c:"Canada (NB)",lat:45.23,lng:-66.02,cap:"10 mtpa",s:"active",y:2009,d:"Repsol. Atlantic Canada."},
+  {r:"N.America",n:"Altamira LNG",c:"Mexico",lat:22.42,lng:-97.88,cap:"3.4 mtpa",s:"active",y:2006,d:"Import terminal."},
+  {r:"N.America",n:"Manzanillo LNG",c:"Mexico",lat:19.04,lng:-104.32,cap:"3.4 mtpa",s:"active",y:2012,d:"Samsung/KOGAS. Pacific coast."}];
+
+
+const L_pipes=L.layerGroup(),L_fields=L.layerGroup(),L_lng=L.layerGroup();
+
+function sc(s){return{active:'s-a',operational:'s-a',intermittent:'s-l',limited:'s-l',reduced:'s-l',suspended:'s-d',delayed:'s-d',proposed:'s-p',construction:'s-v',development:'s-v',winding:'s-d',planned:'s-p',commissioning:'s-v',declining:'s-l',partial:'s-l',appraisal:'s-p',cancelled:'s-d',damaged:'s-d',shut:'s-s'}[s]||'s-a'}
+function sl(s){return{active:'Active',operational:'Operational',intermittent:'Intermittent',limited:'Limited',reduced:'Reduced',suspended:'Suspended',delayed:'Delayed',proposed:'Proposed',construction:'Construction',development:'Development',winding:'Winding down',planned:'Planned',commissioning:'Commissioning',declining:'Declining',partial:'Partial',appraisal:'Appraisal',cancelled:'Cancelled',damaged:'Damaged',shut:'Shut'}[s]||s}
+
+// Render simple-format pipes (S.America, Africa, Oceania, Asia, N.America)
+pipes.forEach(p=>{
+  const isGas=p.t==='gas';
+  const color=isGas?'#00aaff':'#ff6b00';
+  const isP=p.s==='proposed'||p.s==='cancelled';
+  const opacity=isP?.25:p.s==='reduced'||p.s==='suspended'||p.s==='shut'||p.s==='damaged'?.4:.7;
+  const dash=isP?'4,8':p.s==='reduced'?'8,4':null;
+  const line=L.polyline(p.coords,{color,weight:isP?1.5:2,opacity,dashArray:dash,interactive:false,_d:p,_r:p.r});
+  const hit=L.polyline(p.coords,{weight:12,opacity:0,_r:p.r});
+  const cap=p.cap||'';const len=p.len||'';const desc=p.d||'';
+  hit.bindTooltip(`<b>${p.n}</b><br><span style="color:#aaa">${cap} · ${len}</span>`,{sticky:true,className:'pipe-tt'});
+  hit.bindPopup(`<div class="pt" style="color:${color}">${p.n}</div><div class="pr"><span class="pl">Region</span><span class="pv">${p.r}</span></div><div class="pr"><span class="pl">Type</span><span class="pv">${isGas?'Gas':'Oil'}</span></div><div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(p.s)}">${sl(p.s)}</span></span></div><div class="pd"></div><div class="pr"><span class="pl">Capacity</span><span class="pv">${cap}</span></div><div class="pr"><span class="pl">Length</span><span class="pv">${len}</span></div>${p.c?'<div class="pr"><span class="pl">Countries</span><span class="pv" style="font-size:10px">'+p.c+'</span></div>':''}${p.y?'<div class="pr"><span class="pl">Year</span><span class="pv">'+p.y+'</span></div>':''}<div class="pd"></div><div class="pn">${desc}</div>`,{maxWidth:300});
+  hit.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:${color}">${p.n}</div><div style="color:#888">${p.r} · ${p.c||''}</div><div>${cap}</div>`});
+  line.addTo(L_pipes);hit.addTo(L_pipes);
+  if(p.branches) p.branches.forEach(b=>{L.polyline(b,{color,weight:1.5,opacity:opacity*.7,dashArray:dash,interactive:false,_r:p.r}).addTo(L_pipes)});
+  if(p.branch) {const b=p.branch;L.polyline(b,{color,weight:1.5,opacity:opacity*.7,interactive:false,_r:p.r}).addTo(L_pipes)}
 });
 
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+// Render Europe pipes (different property names)
+function addEuPipe(p,type){
+  const isGas=type==='gas';
+  const color=isGas?'#00aaff':'#ff6b00';
+  const s=p.status||'active';
+  const isP=s==='proposed';
+  const opacity=isP?.25:s==='damaged'||s==='shut'||s==='suspended'?.4:.7;
+  const dash=isP?'4,8':s==='shut'||s==='damaged'?'6,6':null;
+  const line=L.polyline(p.coords,{color,weight:isP?1.5:2,opacity,dashArray:dash,interactive:false,_r:'Europe'});
+  const hit=L.polyline(p.coords,{weight:12,opacity:0,_r:'Europe'});
+  hit.bindTooltip(`<b>${p.name}</b><br><span style="color:#aaa">${p.capacity||''} · ${p.length||''}</span>`,{sticky:true,className:'pipe-tt'});
+  hit.bindPopup(`<div class="pt" style="color:${color}">${p.name}</div><div class="pr"><span class="pl">Region</span><span class="pv">Europe</span></div><div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(s)}">${sl(s)}</span></span></div><div class="pd"></div><div class="pr"><span class="pl">Capacity</span><span class="pv">${p.capacity||''}</span></div><div class="pr"><span class="pl">Length</span><span class="pv">${p.length||''}</span></div><div class="pr"><span class="pl">Countries</span><span class="pv" style="font-size:10px">${p.countries||''}</span></div>${p.year?'<div class="pr"><span class="pl">Year</span><span class="pv">'+p.year+'</span></div>':''}<div class="pd"></div><div class="pn">${p.detail||''}</div>`,{maxWidth:300});
+  hit.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:${color}">${p.name}</div><div style="color:#888">Europe · ${p.countries||''}</div><div>${p.capacity||''}</div>`});
+  line.addTo(L_pipes);hit.addTo(L_pipes);
+  if(p.branches) p.branches.forEach(b=>{L.polyline(b,{color,weight:1.5,opacity:opacity*.7,dashArray:dash,interactive:false,_r:'Europe'}).addTo(L_pipes)});
+}
+euGP.forEach(p=>addEuPipe(p,'gas'));
+euOP.forEach(p=>addEuPipe(p,'oil'));
 
-// Dark tile layer
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  subdomains: 'abcd',
-  maxZoom: 19
-}).addTo(map);
+// Render simple-format fields
+fields.forEach(f=>{
+  const cls=f.t==='oil'?'oil':f.t==='gas'?'gas':f.t==='shale'?'shale':f.t==='heavy'?'heavy':f.t==='csg'?'csg':f.t==='sands'?'sands':'mix';
+  const sz=14;
+  const icon=L.divIcon({className:'',html:`<div class="pm ${cls} a" style="width:${sz}px;height:${sz}px"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+  const clr=f.t==='oil'?'#ff6b00':f.t==='gas'?'#00aaff':f.t==='shale'?'#cc8833':f.t==='heavy'?'#cc4444':'#aa44ff';
+  const m=L.marker([f.lat,f.lng],{icon,_r:f.r});
+  m.bindPopup(`<div class="pt" style="color:${clr}">${f.n}</div><div class="pr"><span class="pl">Region</span><span class="pv">${f.r||''}</span></div><div class="pr"><span class="pl">Country</span><span class="pv">${f.c}</span></div><div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(f.s)}">${sl(f.s)}</span></span></div><div class="pd"></div><div class="pr"><span class="pl">Production</span><span class="pv" style="font-size:11px;max-width:140px;text-align:right">${f.prod||''}</span></div><div class="pr"><span class="pl">Reserves</span><span class="pv" style="font-size:11px;max-width:140px;text-align:right">${f.res||''}</span></div><div class="pd"></div><div class="pn">${f.d||''}</div>`,{maxWidth:280});
+  m.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:#fff">${f.n}</div><div style="color:#888">${f.r} · ${f.c}</div><div>Prod: ${f.prod||'N/A'}</div>`});
+  m.addTo(L_fields);
+});
 
-// ==================== FACILITY DATA ====================
+// Europe fields (different property names)
+euFields.forEach(f=>{
+  const t=f.type||'mix';
+  const cls=t==='oil_field'?'oil':t==='gas_field'?'gas':'mix';
+  const icon=L.divIcon({className:'',html:`<div class="pm ${cls} a" style="width:14px;height:14px"></div>`,iconSize:[14,14],iconAnchor:[7,7]});
+  const clr=cls==='oil'?'#ff6b00':cls==='gas'?'#00aaff':'#aa44ff';
+  const m=L.marker([f.lat,f.lng],{icon,_r:'Europe'});
+  m.bindPopup(`<div class="pt" style="color:${clr}">${f.name}</div><div class="pr"><span class="pl">Region</span><span class="pv">Europe</span></div><div class="pr"><span class="pl">Country</span><span class="pv">${f.country||''}</span></div><div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(f.status||'active')}">${sl(f.status||'active')}</span></span></div><div class="pd"></div><div class="pr"><span class="pl">Production</span><span class="pv" style="font-size:11px">${f.production||''}</span></div><div class="pn">${f.detail||''}</div>`,{maxWidth:280});
+  m.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:#fff">${f.name}</div><div style="color:#888">Europe · ${f.country||''}</div>`});
+  m.addTo(L_fields);
+});
 
-const oilFields = [
-  {
-    name: "Ghawar Field",
-    country: "Saudi Arabia",
-    lat: 25.38, lng: 49.25,
-    production: "3.8 M bbl/day",
-    productionNum: 3800,
-    reserves: "~75 B barrels",
-    reservesDetail: "Largest conventional oil field ever discovered",
-    status: "Active - declining slowly",
-    discovered: 1948
-  },
-  {
-    name: "Burgan Field",
-    country: "Kuwait",
-    lat: 29.07, lng: 47.98,
-    production: "1.7 M bbl/day",
-    productionNum: 1700,
-    reserves: "~66 B barrels",
-    reservesDetail: "Second-largest oil field in the world",
-    status: "Active",
-    discovered: 1938
-  },
-  {
-    name: "Safaniya Field",
-    country: "Saudi Arabia",
-    lat: 28.0, lng: 49.0,
-    production: "1.5 M bbl/day",
-    productionNum: 1500,
-    reserves: "~37 B barrels",
-    reservesDetail: "Largest offshore oil field in the world",
-    status: "Active",
-    discovered: 1951
-  },
-  {
-    name: "Rumaila Field",
-    country: "Iraq",
-    lat: 30.55, lng: 47.30,
-    production: "1.5 M bbl/day",
-    productionNum: 1500,
-    reserves: "~17 B barrels",
-    reservesDetail: "Iraq's largest producing field",
-    status: "Active - being expanded",
-    discovered: 1953
-  },
-  {
-    name: "Bolivar Coastal Field",
-    country: "Venezuela",
-    lat: 10.40, lng: -71.60,
-    production: "0.5 M bbl/day",
-    productionNum: 500,
-    reserves: "~32 B barrels",
-    reservesDetail: "Part of the Orinoco Belt heavy oil region",
-    status: "Active - reduced output",
-    discovered: 1917
-  },
-  {
-    name: "Samotlor Field",
-    country: "Russia",
-    lat: 61.18, lng: 76.70,
-    production: "0.5 M bbl/day",
-    productionNum: 500,
-    reserves: "~16 B barrels (original ~28B)",
-    reservesDetail: "Russia's largest oil field, heavily depleted",
-    status: "Active - declining",
-    discovered: 1965
-  },
-  {
-    name: "Prudhoe Bay",
-    country: "USA (Alaska)",
-    lat: 70.25, lng: -148.33,
-    production: "0.3 M bbl/day",
-    productionNum: 300,
-    reserves: "~12 B barrels (original ~25B)",
-    reservesDetail: "Largest oil field in North America",
-    status: "Active - mature",
-    discovered: 1968
-  },
-  {
-    name: "Daqing Field",
-    country: "China",
-    lat: 46.58, lng: 125.02,
-    production: "0.6 M bbl/day",
-    productionNum: 600,
-    reserves: "~16 B barrels (original)",
-    reservesDetail: "China's largest oil field",
-    status: "Active - declining",
-    discovered: 1959
-  },
-  {
-    name: "Cantarell Complex",
-    country: "Mexico",
-    lat: 19.90, lng: -92.10,
-    production: "0.15 M bbl/day",
-    productionNum: 150,
-    reserves: "~18 B barrels (original ~35B)",
-    reservesDetail: "Once the world's 2nd-largest producing field",
-    status: "Active - severe decline",
-    discovered: 1976
-  },
-  {
-    name: "Kashagan Field",
-    country: "Kazakhstan",
-    lat: 46.20, lng: 51.50,
-    production: "0.4 M bbl/day",
-    productionNum: 400,
-    reserves: "~13 B barrels",
-    reservesDetail: "Largest discovery outside Middle East in 40 years",
-    status: "Active - ramping up",
-    discovered: 2000
-  },
-  {
-    name: "Lula (Tupi) Field",
-    country: "Brazil",
-    lat: -25.20, lng: -42.80,
-    production: "1.0 M bbl/day",
-    productionNum: 1000,
-    reserves: "~8 B barrels",
-    reservesDetail: "Major pre-salt deepwater discovery",
-    status: "Active - growing",
-    discovered: 2006
-  },
-  {
-    name: "Johan Sverdrup",
-    country: "Norway",
-    lat: 58.90, lng: 2.55,
-    production: "0.75 M bbl/day",
-    productionNum: 750,
-    reserves: "~2.7 B barrels",
-    reservesDetail: "Largest North Sea discovery in decades",
-    status: "Active - Phase 2 online",
-    discovered: 2010
-  }
-];
+// LNG terminals (simple format)
+lngs.forEach(l=>{
+  const icon=L.divIcon({className:'',html:`<div class="pm lng a" style="width:10px;height:10px"></div>`,iconSize:[10,10],iconAnchor:[5,5]});
+  const m=L.marker([l.lat,l.lng],{icon,_r:l.r});
+  m.bindPopup(`<div class="pt" style="color:#00cc66">${l.n}</div><div class="pr"><span class="pl">Region</span><span class="pv">${l.r||''}</span></div><div class="pr"><span class="pl">Country</span><span class="pv">${l.c}</span></div><div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(l.s)}">${sl(l.s)}</span></span></div><div class="pd"></div><div class="pr"><span class="pl">Capacity</span><span class="pv">${l.cap||''}</span></div><div class="pn">${l.d||''}</div>`,{maxWidth:260});
+  m.addTo(L_lng);
+});
 
-const gasFields = [
-  {
-    name: "South Pars / North Dome",
-    country: "Qatar / Iran",
-    lat: 26.50, lng: 52.00,
-    production: "~22 Bcf/day (combined)",
-    productionNum: 2200,
-    reserves: "~1,800 Tcf",
-    reservesDetail: "World's largest gas field - shared between Qatar & Iran",
-    status: "Active - still expanding",
-    discovered: 1971
-  },
-  {
-    name: "Urengoy Field",
-    country: "Russia",
-    lat: 65.97, lng: 78.37,
-    production: "~7 Bcf/day",
-    productionNum: 700,
-    reserves: "~275 Tcf",
-    reservesDetail: "Third-largest natural gas field globally",
-    status: "Active - mature",
-    discovered: 1966
-  },
-  {
-    name: "Yamburg Field",
-    country: "Russia",
-    lat: 67.97, lng: 75.50,
-    production: "~5 Bcf/day",
-    productionNum: 500,
-    reserves: "~196 Tcf",
-    reservesDetail: "Major Western Siberia gas field",
-    status: "Active - declining",
-    discovered: 1969
-  },
-  {
-    name: "Hassi R'Mel",
-    country: "Algeria",
-    lat: 32.93, lng: 3.28,
-    production: "~8.5 Bcf/day",
-    productionNum: 850,
-    reserves: "~85 Tcf",
-    reservesDetail: "Algeria's largest gas field",
-    status: "Active",
-    discovered: 1956
-  },
-  {
-    name: "Groningen Field",
-    country: "Netherlands",
-    lat: 53.33, lng: 6.75,
-    production: "~0.3 Bcf/day (limited)",
-    productionNum: 30,
-    reserves: "~25 Tcf (remaining)",
-    reservesDetail: "Once Europe's largest gas field, being shut down due to earthquakes",
-    status: "Closing - earthquake risk",
-    discovered: 1959
-  },
-  {
-    name: "Galkynysh Field",
-    country: "Turkmenistan",
-    lat: 37.80, lng: 62.50,
-    production: "~7.5 Bcf/day",
-    productionNum: 750,
-    reserves: "~690 Tcf",
-    reservesDetail: "Second-largest gas field in the world",
-    status: "Active - expanding",
-    discovered: 2006
-  },
-  {
-    name: "Zohr Field",
-    country: "Egypt",
-    lat: 31.80, lng: 32.90,
-    production: "~3 Bcf/day",
-    productionNum: 300,
-    reserves: "~30 Tcf",
-    reservesDetail: "Largest gas discovery in the Mediterranean",
-    status: "Active",
-    discovered: 2015
-  },
-  {
-    name: "Marcellus Shale",
-    country: "USA (Appalachian)",
-    lat: 40.70, lng: -78.50,
-    production: "~27 Bcf/day",
-    productionNum: 2700,
-    reserves: "~500 Tcf (estimated)",
-    reservesDetail: "Largest shale gas play in the US",
-    status: "Active - growing",
-    discovered: "2004 (economic)"
-  },
-  {
-    name: "Shtokman Field",
-    country: "Russia (Barents Sea)",
-    lat: 73.20, lng: 44.00,
-    production: "0 (undeveloped)",
-    productionNum: 0,
-    reserves: "~130 Tcf",
-    reservesDetail: "Giant offshore arctic gas field, development postponed",
-    status: "Undeveloped",
-    discovered: 1988
-  },
-  {
-    name: "North West Shelf",
-    country: "Australia",
-    lat: -19.60, lng: 116.10,
-    production: "~3.5 Bcf/day",
-    productionNum: 350,
-    reserves: "~45 Tcf",
-    reservesDetail: "Australia's largest LNG-producing region",
-    status: "Active",
-    discovered: 1971
-  }
-];
+// Europe LNG (different property names)
+euLNG.forEach(l=>{
+  const icon=L.divIcon({className:'',html:`<div class="pm lng a" style="width:10px;height:10px"></div>`,iconSize:[10,10],iconAnchor:[5,5]});
+  const m=L.marker([l.lat,l.lng],{icon,_r:'Europe'});
+  m.bindPopup(`<div class="pt" style="color:#00cc66">${l.name}</div><div class="pr"><span class="pl">Region</span><span class="pv">Europe</span></div><div class="pr"><span class="pl">Country</span><span class="pv">${l.country||''}</span></div><div class="pr"><span class="pl">Capacity</span><span class="pv">${l.capacity||''}</span></div><div class="pn">${l.detail||l.note||''}</div>`,{maxWidth:260});
+  m.addTo(L_lng);
+});
 
-// ==================== SHIPPING & PIPELINE ROUTES ====================
+[L_pipes,L_fields,L_lng].forEach(l=>l.addTo(map));
 
-const shippingRoutes = [
-  {
-    name: "Strait of Hormuz Route",
-    type: "shipping",
-    note: "~21% of global oil passes through here daily",
-    coords: [[26.5, 56.5],[25.5, 57.5],[24.0, 58.5],[21.0, 60.0],[15.0, 55.0],[12.5, 45.0],[13.5, 43.5]]
-  },
-  {
-    name: "Persian Gulf → Malacca Strait",
-    type: "shipping",
-    note: "Major tanker route to East Asia",
-    coords: [[26.0, 56.0],[22.0, 62.0],[15.0, 68.0],[8.0, 76.0],[4.0, 85.0],[2.0, 98.0],[1.3, 103.8],[4.0, 108.0]]
-  },
-  {
-    name: "Suez Canal Route",
-    type: "shipping",
-    note: "~12% of global trade, major oil route to Europe",
-    coords: [[13.5, 43.5],[15.0, 42.0],[27.5, 34.0],[30.0, 32.5],[31.3, 32.3],[35.0, 25.0],[37.0, 15.0],[36.0, 5.0],[36.5, -5.5]]
-  },
-  {
-    name: "West Africa → Europe",
-    type: "shipping",
-    note: "Nigerian & Angolan crude to European refineries",
-    coords: [[4.0, 5.0],[8.0, -2.0],[15.0, -17.0],[25.0, -16.0],[35.0, -10.0],[43.0, -5.0],[48.0, -3.0]]
-  },
-  {
-    name: "Venezuela → US Gulf",
-    type: "shipping",
-    note: "Heavy crude to US refineries (reduced since sanctions)",
-    coords: [[10.5, -71.5],[12.0, -75.0],[15.0, -80.0],[22.0, -86.0],[27.0, -88.0],[29.0, -89.5]]
-  }
-];
-
-const pipelineRoutes = [
-  {
-    name: "Druzhba Pipeline",
-    type: "pipeline",
-    note: "World's longest oil pipeline network - Russia to Europe",
-    coords: [[61.0, 77.0],[56.0, 60.0],[55.0, 50.0],[54.0, 45.0],[52.5, 40.0],[52.0, 35.0],[51.0, 24.0],[50.5, 20.0]]
-  },
-  {
-    name: "Trans-Siberian Pipeline",
-    type: "pipeline",
-    note: "Russian gas to Western markets",
-    coords: [[66.0, 78.0],[62.0, 65.0],[58.0, 50.0],[56.0, 44.0],[55.0, 38.0],[54.0, 30.0]]
-  },
-  {
-    name: "Trans-Alaska Pipeline",
-    type: "pipeline",
-    note: "Prudhoe Bay to Valdez, 1,288 km",
-    coords: [[70.2, -148.3],[67.0, -150.0],[64.0, -146.0],[63.0, -145.5],[61.1, -146.4]]
-  },
-  {
-    name: "Central Asia-China Pipeline",
-    type: "pipeline",
-    note: "Turkmenistan gas through Uzbekistan, Kazakhstan to China",
-    coords: [[37.8, 62.5],[39.0, 64.0],[41.0, 66.0],[43.0, 73.0],[44.5, 80.0],[44.0, 87.0]]
-  },
-  {
-    name: "BTC Pipeline",
-    type: "pipeline",
-    note: "Baku-Tbilisi-Ceyhan: Caspian oil to Mediterranean",
-    coords: [[40.3, 50.0],[41.7, 45.0],[41.0, 44.0],[39.5, 40.0],[37.0, 35.5]]
-  }
-];
-
-// ==================== LAYER GROUPS ====================
-
-const oilLayer = L.layerGroup();
-const gasLayer = L.layerGroup();
-const routeLayer = L.layerGroup();
-
-// ==================== CREATE MARKERS ====================
-
-function createMarker(field, type) {
-  const sizeBase = type === 'oil' ? field.productionNum / 120 : field.productionNum / 80;
-  const size = Math.max(16, Math.min(44, sizeBase));
-
-  const icon = L.divIcon({
-    className: '',
-    html: `<div class="pulse-marker ${type}" style="width:${size}px;height:${size}px;"></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size/2, size/2]
-  });
-
-  const marker = L.marker([field.lat, field.lng], { icon });
-
-  const unit = type === 'oil' ? 'bbl/day' : 'cf/day';
-  const popupContent = `
-    <div class="popup-title ${type}">${field.name}</div>
-    <div class="popup-row"><span class="popup-label">Country</span><span class="popup-value">${field.country}</span></div>
-    <div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">${type === 'oil' ? '🛢️ Oil' : '🔵 Natural Gas'}</span></div>
-    <div class="popup-divider"></div>
-    <div class="popup-row"><span class="popup-label">Production</span><span class="popup-value">${field.production}</span></div>
-    <div class="popup-row"><span class="popup-label">Est. Reserves</span><span class="popup-value">${field.reserves}</span></div>
-    <div class="popup-divider"></div>
-    <div style="font-size:11px;color:#aaa;margin-top:4px;">${field.reservesDetail}</div>
-    <div class="popup-row" style="margin-top:4px;"><span class="popup-label">Status</span><span class="popup-value" style="font-size:11px;">${field.status}</span></div>
-    <div class="popup-row"><span class="popup-label">Discovered</span><span class="popup-value">${field.discovered}</span></div>
-  `;
-
-  marker.bindPopup(popupContent, { maxWidth: 280 });
-
-  marker.on('click', () => {
-    document.getElementById('selected-info').innerHTML = `
-      <div style="color:#fff;font-weight:700;margin-bottom:4px;" class="${type}">${field.name}</div>
-      <div style="color:#888;">📍 ${field.country}</div>
-      <div style="margin-top:6px;">Production: <strong>${field.production}</strong></div>
-      <div>Reserves: <strong>${field.reserves}</strong></div>
-      <div style="margin-top:4px;color:#888;font-size:11px;">${field.reservesDetail}</div>
-    `;
-  });
-
-  return marker;
+function sf(f,b){
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  curRegion=null;
+  [L_pipes,L_fields,L_lng].forEach(l=>map.removeLayer(l));
+  if(f==='all'||f==='pipes') map.addLayer(L_pipes);
+  if(f==='all'||f==='fields') map.addLayer(L_fields);
+  if(f==='all'||f==='lng') map.addLayer(L_lng);
 }
 
-oilFields.forEach(f => createMarker(f, 'oil').addTo(oilLayer));
-gasFields.forEach(f => createMarker(f, 'gas').addTo(gasLayer));
-
-// ==================== CREATE ROUTES ====================
-
-function createRoute(route) {
-  const color = route.type === 'shipping' ? '#ffcc00' : '#00ff88';
-  const line = L.polyline(route.coords, {
-    color: color,
-    weight: 2.5,
-    opacity: 0.7,
-    dashArray: '8, 8',
-    className: 'animated-route'
-  });
-
-  line.bindPopup(`
-    <div class="popup-title" style="color:${color}">${route.name}</div>
-    <div style="font-size:12px;color:#aaa;margin-top:4px;">${route.note}</div>
-    <div class="popup-row" style="margin-top:4px;"><span class="popup-label">Type</span><span class="popup-value">${route.type === 'shipping' ? '🚢 Shipping Lane' : '🔧 Pipeline'}</span></div>
-  `, { maxWidth: 250 });
-
-  return line;
+function zr(region,b){
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  curRegion=region;
+  [L_pipes,L_fields,L_lng].forEach(l=>{map.addLayer(l)});
+  // Zoom to region
+  const v=regionViews[region];
+  if(v) map.setView([v[0],v[1]],v[2]);
 }
 
-shippingRoutes.forEach(r => createRoute(r).addTo(routeLayer));
-pipelineRoutes.forEach(r => createRoute(r).addTo(routeLayer));
-
-// Add all layers to map
-oilLayer.addTo(map);
-gasLayer.addTo(map);
-routeLayer.addTo(map);
-
-// ==================== FILTER CONTROLS ====================
-
-let currentFilter = 'all';
-
-function toggleFilter(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  if (filter === 'all') {
-    map.addLayer(oilLayer);
-    map.addLayer(gasLayer);
-    map.addLayer(routeLayer);
-  } else if (filter === 'oil') {
-    map.addLayer(oilLayer);
-    map.removeLayer(gasLayer);
-    map.removeLayer(routeLayer);
-  } else if (filter === 'gas') {
-    map.removeLayer(oilLayer);
-    map.addLayer(gasLayer);
-    map.removeLayer(routeLayer);
-  } else if (filter === 'routes') {
-    map.removeLayer(oilLayer);
-    map.removeLayer(gasLayer);
-    map.addLayer(routeLayer);
+// Animate active pipes
+let dOff=0;
+(function anim(){dOff-=.3;L_pipes.eachLayer(l=>{
+  if(!l.options||l.options.weight===12) return;// skip hit lines
+  const d=l.options._d;
+  if(d){
+    const s=d.s||d.status||'';
+    if(s==='active'||s==='operational'){const e=l.getElement();if(e){e.style.strokeDasharray='8,6';e.style.strokeDashoffset=dOff}}
   }
-}
-
-// ==================== ANIMATED DASH OFFSET (SVG) ====================
-// Leaflet renders polylines as SVG paths, so we animate stroke-dashoffset
-setInterval(() => {
-  document.querySelectorAll('.animated-route').forEach(el => {
-    const current = parseFloat(el.style.strokeDashoffset || 0);
-    el.style.strokeDashoffset = current - 0.5;
-  });
-}, 30);
+});requestAnimationFrame(anim)})();
 </script>
-
 </body>
 </html>
