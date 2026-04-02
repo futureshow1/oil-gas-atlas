@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>South America Oil & Gas Infrastructure Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0a0a0a;color:#e0e0e0}
+  #map{width:100vw;height:100vh}
+  @keyframes pulse{0%{transform:scale(1);opacity:.9}50%{transform:scale(1.2);opacity:.55}100%{transform:scale(1);opacity:.9}}
+  .pm{border-radius:50%;cursor:pointer}.pm.a{animation:pulse 2.5s ease-in-out infinite}
+  .pm.oil{background:radial-gradient(circle,#ff6b00,#cc3300);border:2px solid #ff9944;box-shadow:0 0 10px rgba(255,107,0,.5)}
+  .pm.gas{background:radial-gradient(circle,#00aaff,#0055cc);border:2px solid #44ccff;box-shadow:0 0 10px rgba(0,170,255,.5)}
+  .pm.mix{background:radial-gradient(circle,#aa44ff,#6600aa);border:2px solid #cc77ff;box-shadow:0 0 10px rgba(170,68,255,.5)}
+  .pm.lng{background:radial-gradient(circle,#00cc66,#008844);border:2px solid #44ee88;box-shadow:0 0 10px rgba(0,204,102,.5)}
+  .pm.lngi{background:radial-gradient(circle,#00cc66,#006633);border:2px solid #44ee88;box-shadow:0 0 8px rgba(0,204,102,.3)}
+  .pm.shale{background:radial-gradient(circle,#cc8833,#885500);border:2px solid #ddaa44;box-shadow:0 0 10px rgba(204,136,51,.5)}
+  .pm.heavy{background:radial-gradient(circle,#993333,#550000);border:2px solid #cc4444;box-shadow:0 0 10px rgba(153,51,51,.5)}
+  .pnl{position:absolute;z-index:1000;background:rgba(10,10,20,.93);border:1px solid #333;border-radius:10px;padding:14px 18px;backdrop-filter:blur(8px)}
+  #ttl{top:10px;left:50%;transform:translateX(-50%);text-align:center}
+  #ttl h1{font-size:17px;color:#fff}#ttl p{font-size:11px;color:#888;margin-top:2px}
+  #info{top:10px;right:10px;width:300px;max-height:calc(100vh - 20px);overflow-y:auto}
+  #info h2{font-size:14px;margin-bottom:8px;color:#fff}
+  .st{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1a1a2a;font-size:12px}
+  .sl{color:#888}.sv{color:#fff;font-weight:600}
+  #lgd{bottom:30px;left:10px}#lgd h3{font-size:12px;margin-bottom:6px;color:#fff}
+  .li{display:flex;align-items:center;gap:7px;margin:4px 0;font-size:11px}
+  .ld{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .ll{width:28px;height:3px;flex-shrink:0;border-radius:1px}
+  #flt{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .fb{background:rgba(10,10,20,.85);border:1px solid #444;color:#ccc;padding:5px 13px;border-radius:18px;cursor:pointer;font-size:11px;transition:all .2s;white-space:nowrap}
+  .fb:hover{border-color:#888;color:#fff}.fb.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.1)}
+  .sb{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+  .s-a{background:rgba(0,200,80,.2);color:#00cc55;border:1px solid #00cc55}
+  .s-d{background:rgba(255,50,50,.2);color:#ff4444;border:1px solid #ff4444}
+  .s-s{background:rgba(150,150,150,.2);color:#999;border:1px solid #666}
+  .s-l{background:rgba(255,170,0,.2);color:#ffaa00;border:1px solid #ffaa00}
+  .s-p{background:rgba(100,100,200,.2);color:#8888cc;border:1px solid #8888cc}
+  .s-v{background:rgba(0,170,255,.2);color:#00aaff;border:1px solid #00aaff}
+  .leaflet-popup-content-wrapper{background:rgba(12,12,25,.96)!important;color:#e0e0e0!important;border:1px solid #444!important;border-radius:8px!important}
+  .leaflet-popup-tip{background:rgba(12,12,25,.96)!important}
+  .leaflet-popup-content{margin:10px 14px!important;font-size:12px!important;line-height:1.5!important}
+  .pt{font-size:14px;font-weight:700;margin-bottom:5px}
+  .pr{display:flex;justify-content:space-between;padding:2px 0;gap:10px}
+  .pl{color:#888;flex-shrink:0}.pv{font-weight:600;text-align:right}
+  .pd{border-top:1px solid #333;margin:5px 0}
+  .pn{font-size:11px;color:#aaa;margin-top:4px;line-height:1.4}
+  #info::-webkit-scrollbar{width:4px}#info::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
+  .pipe-tt{background:rgba(10,10,25,.94)!important;border:1px solid #555!important;border-radius:6px!important;padding:6px 10px!important;font-size:11px!important;line-height:1.4!important;max-width:280px!important;color:#e0e0e0!important;box-shadow:0 4px 12px rgba(0,0,0,.5)!important}
+  .pipe-tt .leaflet-tooltip-arrow{display:none}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="pnl" id="ttl"><h1>South America Oil & Gas Infrastructure</h1><p>Pipelines, fields, LNG terminals | Data as of April 2026</p></div>
+<div id="flt">
+  <button class="fb on" onclick="sf('all',this)">All</button>
+  <button class="fb" onclick="sf('pipes',this)">Pipelines</button>
+  <button class="fb" onclick="sf('fields',this)">Fields</button>
+  <button class="fb" onclick="sf('lng',this)">LNG</button>
+  <button class="fb" onclick="zr('vm',this)">Vaca Muerta Focus</button>
+  <button class="fb" onclick="zr('ps',this)">Pre-Salt Focus</button>
+  <button class="fb" onclick="zr('or',this)">Orinoco Focus</button>
+</div>
+<div class="pnl" id="info">
+  <h2>South America Overview</h2>
+  <div class="st"><span class="sl">Pipelines</span><span class="sv" style="color:#00aaff">15</span></div>
+  <div class="st"><span class="sl">Oil/Gas Fields</span><span class="sv" style="color:#aa44ff">17</span></div>
+  <div class="st"><span class="sl">LNG Export</span><span class="sv" style="color:#00cc66">2</span></div>
+  <div class="st"><span class="sl">LNG Import</span><span class="sv" style="color:#00cc66">9</span></div>
+  <div style="margin-top:12px"><h2>Key Facts</h2>
+    <div style="font-size:11px;line-height:1.6;color:#aaa;margin-top:4px">
+      <div style="margin-bottom:4px"><span class="sb s-a">Brazil</span> Pre-Salt produces ~3.5M bpd — 75% of Brazil's output. World's 7th largest oil producer.</div>
+      <div style="margin-bottom:4px"><span class="sb s-l">Venezuela</span> World's largest proven reserves (513B bbl in Orinoco Belt), but severely underperforming due to sanctions & mismanagement.</div>
+      <div style="margin-bottom:4px"><span class="sb s-v">Argentina</span> Vaca Muerta shale boom: 400k bpd oil + 2.5 Bcf/d gas. Néstor Kirchner pipeline operational since 2023.</div>
+      <div style="margin-bottom:4px"><span class="sb s-a">Guyana</span> Fastest-growing oil producer globally — 640k bpd from Stabroek Block (ExxonMobil). 11.6B bbl recoverable.</div>
+      <div style="margin-bottom:4px"><span class="sb s-d">Ecuador</span> Block 43 ITT phase-down ordered by 2023 referendum — production winding down in Yasuní National Park.</div>
+    </div>
+  </div>
+  <div style="margin-top:12px"><h2>Selected Item</h2><div id="sel" style="font-size:11px;color:#666;padding:6px 0">Click any element for details</div></div>
+</div>
+<div class="pnl" id="lgd">
+  <h3>Legend</h3>
+  <div class="li"><div class="ll" style="background:#00aaff"></div> Gas Pipeline</div>
+  <div class="li"><div class="ll" style="background:#ff6b00"></div> Oil Pipeline</div>
+  <div class="li"><div class="ll" style="background:#8888cc;height:1px;border:1px dashed #8888cc"></div> Proposed</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ff6b00,#cc3300);border:1px solid #ff9944"></div> Oil Field</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00aaff,#0055cc);border:1px solid #44ccff"></div> Gas Field</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#aa44ff,#6600aa);border:1px solid #cc77ff"></div> Oil+Gas</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#cc8833,#885500);border:1px solid #ddaa44"></div> Shale (Vaca Muerta)</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#993333,#550000);border:1px solid #cc4444"></div> Extra-Heavy Oil</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#008844);border:1px solid #44ee88"></div> LNG Export</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#006633);border:1px solid #44ee88;opacity:.7"></div> LNG Import (FSRU)</div>
+</div>
+
+<script>
+const map=L.map('map',{center:[-15,-58],zoom:4,minZoom:3,maxZoom:10,zoomControl:false});
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OSM &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+
+const pipes=[
+  {n:"GASBOL (Bolivia-Brazil)",t:"gas",s:"active",cap:"1.06 Bcf/d (30 MMm³/d)",len:"3,150 km",d:"South America's longest pipeline. Bolivian gas from Santa Cruz to São Paulo & Porto Alegre. Flows declining as Bolivia's production drops. Contract renegotiations ongoing.",c:"Bolivia, Brazil",y:1999,
+   coords:[[-17.78,-63.18],[-19.00,-57.80],[-19.01,-57.65],[-20.47,-54.62],[-22.13,-51.39],[-22.91,-47.06],[-23.55,-46.63],[-25.43,-49.27],[-27.60,-48.55],[-30.03,-51.23]]},
+  {n:"YABOG Pipeline (Bolivia-Argentina)",t:"gas",s:"reduced",cap:"0.27 Bcf/d (7.7 MMm³/d)",len:"441 km",d:"Bolivia's oldest gas export pipeline (1972). Flows declining as Bolivia's production falls and Argentina develops Vaca Muerta.",c:"Bolivia, Argentina",y:1972,
+   coords:[[-21.97,-63.68],[-22.04,-63.69],[-22.21,-63.67],[-23.31,-64.22]]},
+  {n:"GasAndes Pipeline",t:"gas",s:"reduced",cap:"10 MMm³/d",len:"463 km",d:"Trans-Andean gas pipeline crossing at 3,500m (Cristo Redentor pass). Flows curtailed after Argentina's 2004 energy crisis. Some restoration with Vaca Muerta growth.",c:"Argentina, Chile",y:1997,
+   coords:[[-33.37,-68.42],[-32.89,-68.83],[-32.59,-69.35],[-32.83,-70.07],[-32.83,-70.60],[-33.45,-70.67]]},
+  {n:"TransAndino Oil Pipeline",t:"oil",s:"active",cap:"113,000 bpd",len:"463 km",d:"Crude oil from Neuquén Basin across the Andes (2,500m) to Concón port (Chile) for export.",c:"Argentina, Chile",y:1996,
+   coords:[[-37.05,-69.77],[-37.39,-68.93],[-35.87,-69.80],[-35.97,-70.39],[-35.43,-71.67],[-32.93,-71.51]]},
+  {n:"TGN (Transportadora de Gas del Norte)",t:"gas",s:"active",cap:"25 MMm³/d",len:"6,448 km",d:"Northern Argentina gas system. Connects NW fields and Bolivia border to Buenos Aires. Two main trunk lines.",c:"Argentina",y:1960,
+   coords:[[-22.21,-63.67],[-26.81,-65.22],[-31.42,-64.18],[-32.95,-60.64],[-33.33,-60.22],[-34.60,-58.38]]},
+  {n:"TGS (Transportadora de Gas del Sur)",t:"gas",s:"active",cap:"40 MMm³/d",len:"9,184 km",d:"Argentina's largest gas transporter. Connects Neuquén Basin (Vaca Muerta) and San Jorge Basin to Buenos Aires & Bahía Blanca petrochemical hub.",c:"Argentina",y:1949,
+   coords:[[-38.95,-68.06],[-38.47,-68.64],[-38.74,-62.32],[-34.60,-58.38]],branches:[[[-45.87,-67.48],[-38.74,-62.32]]]},
+  {n:"NorAndino Pipeline",t:"gas",s:"reduced",cap:"8.5 MMm³/d",len:"1,180 km",d:"Gas from Salta (Argentina) across the high Andes (~4,400m at Paso de Jama) to Atacama mining region in northern Chile.",c:"Argentina, Chile",y:1999,
+   coords:[[-22.25,-63.80],[-24.22,-66.32],[-23.23,-67.04],[-22.91,-68.20],[-23.10,-70.45]]},
+  {n:"OCP Pipeline (Heavy Crude)",t:"oil",s:"active",cap:"450,000 bpd",len:"485 km",d:"Heavy crude from Amazon (Lago Agrio) across the Andes at 4,064m to Esmeraldas/Balao terminal on the Pacific coast.",c:"Ecuador",y:2003,
+   coords:[[0.09,-76.88],[-0.46,-77.89],[-0.37,-78.14],[-0.18,-78.47],[-0.25,-79.17],[0.92,-79.89]]},
+  {n:"SOTE Pipeline (Trans-Ecuadorian)",t:"oil",s:"active",cap:"360,000 bpd",len:"497 km",d:"Ecuador's original trans-Andean oil pipeline (1972). Multiple ruptures from earthquakes, landslides, volcanic activity.",c:"Ecuador",y:1972,
+   coords:[[0.09,-76.88],[0.04,-77.33],[-0.46,-77.89],[-0.37,-78.14],[-0.18,-78.47],[0.96,-79.65]]},
+  {n:"Camisea Gas Pipeline",t:"gas",s:"active",cap:"1.29 Bcf/d",len:"730 km",d:"From Amazon jungle across the Andes at 4,860m (one of world's highest pipeline crossings) to coast at Pisco. Gas line to Lima + NGL line to Pisco fractionation.",c:"Peru",y:2004,
+   coords:[[-11.87,-72.90],[-12.62,-73.10],[-13.63,-73.95],[-13.16,-74.22],[-13.76,-75.60],[-13.71,-76.20],[-12.27,-76.87]]},
+  {n:"Oleoducto Central / Vasconia",t:"oil",s:"active",cap:"590,000 bpd",len:"836 km",d:"Colombia's main oil pipeline from the Llanos region to Coveñas Caribbean export terminal. Carries majority of Colombia's crude exports.",c:"Colombia",y:1969,
+   coords:[[4.08,-73.55],[6.02,-74.06],[7.07,-73.85],[10.15,-73.96],[9.41,-75.69]]},
+  {n:"Caño Limón - Coveñas Pipeline",t:"oil",s:"active",cap:"220,000 bpd",len:"770 km",d:"Oil from Arauca (near Venezuela border) to Coveñas. One of the most attacked pipelines in the world — bombed over 1,500 times since 1986 by ELN guerrillas.",c:"Colombia",y:1986,
+   coords:[[7.13,-71.43],[6.95,-71.87],[7.30,-72.48],[8.38,-73.35],[8.55,-73.60],[9.41,-75.69]]},
+  {n:"Néstor Kirchner Gas Pipeline (GPNK)",t:"gas",s:"active",cap:"11 MMm³/d (0.39 Bcf/d)",len:"573 km",d:"New strategic pipeline (2023) for Vaca Muerta shale gas from Neuquén to Buenos Aires. Phase 2 under construction to San Jerónimo. Central to Argentina's net gas exporter ambitions.",c:"Argentina",y:2023,
+   coords:[[-38.55,-68.55],[-39.03,-67.08],[-37.77,-67.72],[-36.75,-63.03],[-34.65,-59.43],[-32.08,-60.73]]},
+  {n:"OCENSA Pipeline",t:"oil",s:"active",cap:"720,000 bpd",len:"836 km",d:"Colombia's highest-capacity crude pipeline. Cusiana/Cupiagua fields to Coveñas export terminal. Built by BP consortium for Cusiana development.",c:"Colombia",y:1998,
+   coords:[[5.35,-72.72],[6.02,-74.06],[7.07,-73.85],[7.75,-73.39],[9.41,-75.69]]},
+  {n:"Gasoducto del Pacífico (Pacific Gas)",t:"gas",s:"proposed",cap:"TBD",len:"TBD",d:"Proposed routes to bring Vaca Muerta gas to Chilean Pacific coast for potential LNG export. Multiple concepts studied, none under construction.",c:"Argentina, Chile",
+   coords:[[-38.50,-68.60],[-38.00,-70.50],[-37.00,-73.00]]},
+];
+
+const fields=[
+  {n:"Vaca Muerta Formation",c:"Argentina",t:"shale",lat:-38.50,lng:-69.00,prod:"400k bpd oil + 2.5 Bcf/d gas",res:"16B bbl oil + 308 Tcf gas (TRR)",s:"active",y:2010,d:"World-class shale formation (~30,000 km²). Often compared to US Permian Basin. Rapid development since 2018. YPF, Shell, Chevron, ExxonMobil. Argentina's path to net energy exporter."},
+  {n:"Pre-Salt Complex (Santos Basin)",c:"Brazil",t:"mix",lat:-24.50,lng:-42.50,prod:"~3.5M bpd",res:"Multiple giants (50+ billion bbl)",s:"active",y:2006,d:"Massive deepwater oil beneath salt layer. 75% of Brazil's production. Water depths 2,000-2,500m. Reservoirs 5,000-7,000m deep. Key fields: Lula, Búzios, Mero, Sapinhoá."},
+  {n:"Orinoco Belt",c:"Venezuela",t:"heavy",lat:8.00,lng:-65.00,prod:"~400k bpd (severely underperforming)",res:"513 billion bbl (world's largest)",s:"limited",d:"World's largest known petroleum deposit. Extra-heavy crude (8-12 API). Production a fraction of potential due to PDVSA collapse, US sanctions, lack of investment. 1.3 trillion bbl OIP."},
+  {n:"Bolívar Coastal Fields (Lake Maracaibo)",c:"Venezuela",t:"oil",lat:9.80,lng:-71.30,prod:"~250k bpd (declined from 3M peak)",res:"Historic mega-field",s:"limited",y:1917,d:"One of world's oldest continuously producing areas. Lake Maracaibo fields peaked 1960s-1970s. Currently far below potential due to PDVSA operational collapse."},
+  {n:"Camisea Gas Field",c:"Peru",t:"gas",lat:-11.85,lng:-72.85,prod:"1.2 Bcf/d",res:"Significant — San Martín, Cashiriari, Pagoreni",s:"active",y:1986,d:"Peru's largest gas field in remote Ucayali jungle. Discovered by Shell 1986, developed 2004. Transformed Peru from gas importer to exporter (via Peru LNG). Controversial — near indigenous reserves."},
+  {n:"Caño Limón Field",c:"Colombia",t:"oil",lat:7.13,lng:-71.43,prod:"~30k bpd (from 200k peak)",res:"Declining",s:"active",y:1983,d:"Oil field near Venezuelan border (Arauca). Was Colombia's largest in late 1980s. Pipeline has been attacked over 1,500 times. Operated by Ecopetrol (originally Oxy)."},
+  {n:"Cusiana-Cupiagua Fields",c:"Colombia",t:"mix",lat:5.35,lng:-72.72,prod:"~60k bpd (from 420k peak)",res:"Declining",s:"active",y:1991,d:"Major Llanos foothills fields (Casanare). Discovered by BP. Led to OCENSA pipeline construction. Significant decline from 1999 peak."},
+  {n:"Block 43 ITT (Yasuní)",c:"Ecuador",t:"oil",lat:-0.95,lng:-75.55,prod:"57k bpd (phase-down ordered)",res:"1.67 billion bbl",s:"winding",d:"Controversial block in Yasuní National Park — one of Earth's most biodiverse places. 2023 referendum ordered halt to extraction. Phase-down ongoing. Near uncontacted indigenous peoples."},
+  {n:"Guyana Stabroek Block",c:"Guyana",t:"mix",lat:7.50,lng:-57.50,prod:"640k bpd (4 FPSOs)",res:"11.6 billion bbl recoverable",s:"active",y:2015,d:"ExxonMobil deepwater discovery transformed Guyana into fastest-growing oil producer globally. 30+ discoveries. Liza 1&2, Payara, Yellowtail producing. Uaru & Whiptail planned."},
+  // Source fields for pipelines that were missing markers
+  {n:"Bolivian Gas Fields (Santa Cruz/Tarija)",c:"Bolivia",t:"gas",lat:-18.50,lng:-63.40,prod:"~1.2 Bcf/d (declining)",res:"Declining — was 26 Tcf",s:"limited",y:1960,d:"Bolivia's gas fields in Santa Cruz & Tarija departments. Feed GASBOL (to Brazil) and YABOG (to Argentina). Production declining significantly, threatening export contracts."},
+  {n:"Noroeste Basin (Salta)",c:"Argentina",t:"gas",lat:-22.30,lng:-63.75,prod:"Moderate",res:"Mature basin",s:"active",y:1951,d:"Northwest Argentina gas basin (Salta, Jujuy). Feeds TGN pipeline system to Buenos Aires and NorAndino pipeline to Chile. Mature, conventional production."},
+  {n:"Neuquén Basin (Conventional)",c:"Argentina",t:"mix",lat:-38.95,lng:-68.06,prod:"Legacy production + Vaca Muerta",res:"Conventional + unconventional",s:"active",y:1918,d:"Argentina's most productive hydrocarbon basin since 1918. Conventional fields plus the Vaca Muerta shale revolution. Source for TGS, TransAndino, and Néstor Kirchner pipelines."},
+  {n:"San Jorge Basin (Patagonia)",c:"Argentina",t:"oil",lat:-45.87,lng:-67.48,prod:"~120k bpd",res:"Mature — Comodoro Rivadavia area",s:"active",y:1907,d:"Argentina's oldest oil-producing region (Comodoro Rivadavia, 1907). Feeds into TGS pipeline system. Mature, declining conventional fields. Pan American Energy main operator."},
+  {n:"Lago Agrio / Oriente Fields",c:"Ecuador",t:"oil",lat:0.09,lng:-76.88,prod:"~500k bpd total Ecuador",res:"Amazon basin fields",s:"active",y:1967,d:"Ecuador's Amazon oil fields hub. Source for both SOTE and OCP trans-Andean pipelines. Includes Lago Agrio, Sacha, Shushufindi and dozens more fields."},
+  {n:"Llanos Basin (Meta/Casanare)",c:"Colombia",t:"oil",lat:4.08,lng:-73.55,prod:"~350k bpd",res:"Multiple fields",s:"active",d:"Colombia's eastern Llanos plains. Major producing basin feeding the Oleoducto Central/Vasconia pipeline. Includes Castilla, Rubiales (declining), Apiay fields."},
+  {n:"Coveñas Marine Terminal",c:"Colombia",t:"oil",lat:9.41,lng:-75.69,prod:"Export hub — 3 pipelines converge",res:"Terminal, not a field",s:"active",y:1969,d:"Colombia's main crude oil export terminal on the Caribbean coast. Endpoint of OCENSA, Oleoducto Central, and Caño Limón pipelines. All Colombian crude exports funnel here."},
+  {n:"Trinidad Gas Fields",c:"Trinidad & Tobago",t:"gas",lat:10.50,lng:-61.20,prod:"~2.5 Bcf/d (declining)",res:"Mature offshore",s:"limited",d:"Offshore gas fields feeding Atlantic LNG. Production declining — supply shortfall forcing LNG to operate below capacity. East Coast Marine Area fields."},
+];
+
+const lngs_export=[
+  {n:"Atlantic LNG (Point Fortin)",c:"Trinidad & Tobago",lat:10.16,lng:-61.67,cap:"14.8 mtpa (4 trains)",s:"active",y:1999,d:"Largest LNG in the Americas by history. Operating below capacity due to declining domestic gas. Exports to US, Europe, Latin America."},
+  {n:"Peru LNG (Melchorita)",c:"Peru",lat:-13.16,lng:-76.33,cap:"4.45 mtpa",s:"active",y:2010,d:"South America's first Pacific coast LNG export. Fed by Camisea gas via 408 km trans-Andean pipeline. Exports to Asia, Spain, Mexico."},
+];
+
+const lngs_import=[
+  {n:"Guanabara Bay FSRU",c:"Brazil",lat:-22.81,lng:-43.09,cap:"20 MMm³/d",s:"active",y:2009,d:"Brazil's first LNG import. FSRU in Guanabara Bay near Rio de Janeiro. Supplements pipeline gas for seasonal demand peaks."},
+  {n:"Pecém FSRU",c:"Brazil",lat:-3.53,lng:-38.81,cap:"7 MMm³/d",s:"active",y:2008,d:"FSRU at Port of Pecém, northeastern Brazil. Serves gas-short northeast region for power generation."},
+  {n:"Bahia FSRU",c:"Brazil",lat:-12.89,lng:-38.50,cap:"14 MMm³/d",s:"active",y:2014,d:"FSRU in Bay of All Saints near Salvador. Supplements gas for northeast power generation."},
+  {n:"Porto Alegre FSRU",c:"Brazil",lat:-30.03,lng:-51.10,cap:"5 MMm³/d",s:"planned",d:"Planned/intermittent FSRU at southern Brazil port for Rio Grande do Sul gas market."},
+  {n:"Escobar FSRU (GNL Escobar)",c:"Argentina",lat:-34.35,lng:-58.78,cap:"17.8 MMm³/d",s:"active",y:2011,d:"Argentina's primary LNG import. Paraná River near Buenos Aires. Seasonal winter use declining as Vaca Muerta grows & GPNK pipeline comes online."},
+  {n:"Bahía Blanca GNL",c:"Argentina",lat:-38.72,lng:-62.27,cap:"10 MMm³/d",s:"active",y:2008,d:"Argentina's first LNG import. Seasonal use declining due to Vaca Muerta growth."},
+  {n:"GNL Quintero",c:"Chile",lat:-32.77,lng:-71.53,cap:"10 MMm³/d",s:"active",y:2009,d:"Chile's main LNG import. Onshore regasification at Quintero Bay. Built after Argentina curtailed gas exports in 2004."},
+  {n:"GNL Mejillones",c:"Chile",lat:-23.10,lng:-70.45,cap:"5.5 MMm³/d",s:"active",y:2010,d:"LNG import in Atacama mining region. FSRU serving power for Antofagasta mining operations."},
+  {n:"SPEC LNG (Cartagena FSRU)",c:"Colombia",lat:10.37,lng:-75.51,cap:"5.6 MMm³/d",s:"active",y:2016,d:"FSRU at Cartagena, Caribbean coast. Supplements declining Guajira gas fields. Receives LNG from Trinidad & US Gulf Coast."},
+];
+
+// Layers
+const L_pipes=L.layerGroup(), L_fields=L.layerGroup(), L_lng=L.layerGroup();
+
+function sc(s){return{active:'s-a',intermittent:'s-l',limited:'s-l',reduced:'s-l',suspended:'s-d',delayed:'s-d',proposed:'s-p',construction:'s-v',development:'s-v',winding:'s-d',planned:'s-p',commissioning:'s-v'}[s]||'s-a'}
+function sl(s){return{active:'Active',intermittent:'Intermittent',limited:'Limited/Declining',reduced:'Reduced flows',suspended:'Suspended',delayed:'Delayed',proposed:'Proposed',construction:'Under construction',development:'In development',winding:'Winding down',planned:'Planned',commissioning:'Commissioning'}[s]||s}
+
+pipes.forEach(p=>{
+  const isGas=p.t==='gas', isProposed=p.s==='proposed';
+  const color=isGas?'#00aaff':'#ff6b00';
+  const opacity=isProposed?.25:p.s==='reduced'?.55:.8;
+  const dash=isProposed?'4,8':p.s==='reduced'?'8,4':null;
+  // Invisible fat line for easier clicking
+  const hitLine=L.polyline(p.coords,{color:'transparent',weight:15,opacity:0,interactive:true});
+  const line=L.polyline(p.coords,{color,weight:isProposed?1.5:2.5,opacity,dashArray:dash,_d:p,interactive:false});
+  const popupHtml=`<div class="pt" style="color:${color}">${p.n}</div>
+    <div class="pr"><span class="pl">Type</span><span class="pv">${isGas?'Gas':'Oil'} Pipeline</span></div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(p.s)}">${sl(p.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Capacity</span><span class="pv">${p.cap}</span></div>
+    <div class="pr"><span class="pl">Length</span><span class="pv">${p.len}</span></div>
+    <div class="pr"><span class="pl">Countries</span><span class="pv" style="font-size:10px;max-width:150px;text-align:right">${p.c}</span></div>
+    ${p.y?`<div class="pr"><span class="pl">Year</span><span class="pv">${p.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${p.d}</div>`;
+  hitLine.bindPopup(popupHtml,{maxWidth:300});
+  hitLine.bindTooltip(`<b>${p.n}</b><br><span style="color:#aaa">${p.cap} · ${p.len}</span><br><span style="color:#888;font-size:10px">${p.d.substring(0,120)}…</span>`,{sticky:true,className:'pipe-tt',direction:'top',offset:[0,-8]});
+  hitLine.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:${color}">${p.n}</div><div style="color:#888">${p.c}</div><div>${isGas?'Gas':'Oil'} · ${p.cap}</div><div>${p.len} · ${sl(p.s)}</div>`});
+  line.addTo(L_pipes);hitLine.addTo(L_pipes);
+  if(p.branches) p.branches.forEach(b=>{L.polyline(b,{color,weight:2,opacity:opacity*.8,dashArray:dash}).addTo(L_pipes)});
+});
+
+fields.forEach(f=>{
+  const cls=f.t==='oil'?'oil':f.t==='gas'?'gas':f.t==='shale'?'shale':f.t==='heavy'?'heavy':'mix';
+  const anim=f.s!=='winding'&&f.s!=='delayed'?' a':'';
+  const sz=f.t==='shale'||f.t==='heavy'||f.n.includes('Pre-Salt')||f.n.includes('Guyana')?22:f.s==='active'?18:14;
+  const icon=L.divIcon({className:'',html:`<div class="pm ${cls}${anim}" style="width:${sz}px;height:${sz}px;${f.s==='winding'?'opacity:.5':''}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+  const clr=f.t==='oil'?'#ff6b00':f.t==='gas'?'#00aaff':f.t==='shale'?'#cc8833':f.t==='heavy'?'#cc4444':'#aa44ff';
+  const m=L.marker([f.lat,f.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:${clr}">${f.n}</div>
+    <div class="pr"><span class="pl">Country</span><span class="pv">${f.c}</span></div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(f.s)}">${sl(f.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Production</span><span class="pv" style="font-size:11px;max-width:150px;text-align:right">${f.prod}</span></div>
+    <div class="pr"><span class="pl">Reserves</span><span class="pv" style="font-size:11px;max-width:150px;text-align:right">${f.res}</span></div>
+    ${f.y?`<div class="pr"><span class="pl">Discovered</span><span class="pv">${f.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${f.d}</div>`,{maxWidth:300});
+  m.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:#fff">${f.n}</div><div style="color:#888">${f.c}</div><div>Production: ${f.prod}</div><div>Reserves: ${f.res}</div>`});
+  m.addTo(L_fields);
+});
+
+lngs_export.forEach(l=>{
+  const icon=L.divIcon({className:'',html:`<div class="pm lng a" style="width:14px;height:14px"></div>`,iconSize:[14,14],iconAnchor:[7,7]});
+  const m=L.marker([l.lat,l.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:#00cc66">${l.n}</div>
+    <div class="pr"><span class="pl">Country</span><span class="pv">${l.c}</span></div>
+    <div class="pr"><span class="pl">Type</span><span class="pv">LNG Export</span></div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(l.s)}">${sl(l.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Capacity</span><span class="pv">${l.cap}</span></div>
+    ${l.y?`<div class="pr"><span class="pl">Year</span><span class="pv">${l.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${l.d}</div>`,{maxWidth:280});
+  m.addTo(L_lng);
+});
+
+lngs_import.forEach(l=>{
+  const icon=L.divIcon({className:'',html:`<div class="pm lngi${l.s!=='planned'?' a':''}" style="width:10px;height:10px;${l.s==='planned'?'opacity:.4':''}"></div>`,iconSize:[10,10],iconAnchor:[5,5]});
+  const m=L.marker([l.lat,l.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:#00cc66">${l.n}</div>
+    <div class="pr"><span class="pl">Country</span><span class="pv">${l.c}</span></div>
+    <div class="pr"><span class="pl">Type</span><span class="pv">LNG Import (FSRU)</span></div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(l.s)}">${sl(l.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Capacity</span><span class="pv">${l.cap}</span></div>
+    ${l.y?`<div class="pr"><span class="pl">Year</span><span class="pv">${l.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${l.d}</div>`,{maxWidth:280});
+  m.addTo(L_lng);
+});
+
+[L_pipes,L_fields,L_lng].forEach(l=>l.addTo(map));
+
+function sf(f,b){
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  [L_pipes,L_fields,L_lng].forEach(l=>map.removeLayer(l));
+  if(f==='all'||f==='pipes') map.addLayer(L_pipes);
+  if(f==='all'||f==='fields') map.addLayer(L_fields);
+  if(f==='all'||f==='lng') map.addLayer(L_lng);
+}
+
+function zr(r,b){
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  [L_pipes,L_fields,L_lng].forEach(l=>map.addLayer(l));
+  if(r==='vm') map.setView([-38.5,-68.8],7);
+  else if(r==='ps') map.setView([-24.5,-42.5],7);
+  else if(r==='or') map.setView([8.5,-65],7);
+}
+
+// Animate active pipes
+let dOff=0;
+(function anim(){dOff-=.4;L_pipes.eachLayer(l=>{if(l.options&&l.options._d){const d=l.options._d;if(d.s==='active'){const e=l.getElement();if(e){e.style.strokeDasharray='8,6';e.style.strokeDashoffset=dOff}}}});requestAnimationFrame(anim)})();
+</script>
+</body>
+</html>

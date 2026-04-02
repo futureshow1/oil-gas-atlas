@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oceania & Australia Oil & Gas Infrastructure Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0a0a0a;color:#e0e0e0}
+  #map{width:100vw;height:100vh}
+  @keyframes pulse{0%{transform:scale(1);opacity:.9}50%{transform:scale(1.2);opacity:.55}100%{transform:scale(1);opacity:.9}}
+  .pm{border-radius:50%;cursor:pointer}.pm.a{animation:pulse 2.5s ease-in-out infinite}
+  .pm.oil{background:radial-gradient(circle,#ff6b00,#cc3300);border:2px solid #ff9944;box-shadow:0 0 10px rgba(255,107,0,.5)}
+  .pm.gas{background:radial-gradient(circle,#00aaff,#0055cc);border:2px solid #44ccff;box-shadow:0 0 10px rgba(0,170,255,.5)}
+  .pm.mix{background:radial-gradient(circle,#aa44ff,#6600aa);border:2px solid #cc77ff;box-shadow:0 0 10px rgba(170,68,255,.5)}
+  .pm.lng{background:radial-gradient(circle,#00cc66,#008844);border:2px solid #44ee88;box-shadow:0 0 10px rgba(0,204,102,.5)}
+  .pm.csg{background:radial-gradient(circle,#ccaa00,#886600);border:2px solid #eedd44;box-shadow:0 0 10px rgba(204,170,0,.5)}
+  .pnl{position:absolute;z-index:1000;background:rgba(10,10,20,.93);border:1px solid #333;border-radius:10px;padding:14px 18px;backdrop-filter:blur(8px)}
+  #ttl{top:10px;left:50%;transform:translateX(-50%);text-align:center}
+  #ttl h1{font-size:17px;color:#fff}#ttl p{font-size:11px;color:#888;margin-top:2px}
+  #info{top:10px;right:10px;width:300px;max-height:calc(100vh - 20px);overflow-y:auto}
+  #info h2{font-size:14px;margin-bottom:8px;color:#fff}
+  .st{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1a1a2a;font-size:12px}
+  .sl{color:#888}.sv{color:#fff;font-weight:600}
+  #lgd{bottom:30px;left:10px}#lgd h3{font-size:12px;margin-bottom:6px;color:#fff}
+  .li{display:flex;align-items:center;gap:7px;margin:4px 0;font-size:11px}
+  .ld{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .ll{width:28px;height:3px;flex-shrink:0;border-radius:1px}
+  #flt{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .fb{background:rgba(10,10,20,.85);border:1px solid #444;color:#ccc;padding:5px 13px;border-radius:18px;cursor:pointer;font-size:11px;transition:all .2s;white-space:nowrap}
+  .fb:hover{border-color:#888;color:#fff}.fb.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.1)}
+  .sb{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+  .s-a{background:rgba(0,200,80,.2);color:#00cc55;border:1px solid #00cc55}
+  .s-d{background:rgba(255,50,50,.2);color:#ff4444;border:1px solid #ff4444}
+  .s-l{background:rgba(255,170,0,.2);color:#ffaa00;border:1px solid #ffaa00}
+  .s-p{background:rgba(100,100,200,.2);color:#8888cc;border:1px solid #8888cc}
+  .s-v{background:rgba(0,170,255,.2);color:#00aaff;border:1px solid #00aaff}
+  .pipe-tt{background:rgba(10,10,25,.94)!important;border:1px solid #555!important;border-radius:6px!important;padding:6px 10px!important;font-size:11px!important;line-height:1.4!important;max-width:280px!important;color:#e0e0e0!important;box-shadow:0 4px 12px rgba(0,0,0,.5)!important}
+  .pipe-tt .leaflet-tooltip-arrow{display:none}
+  .leaflet-popup-content-wrapper{background:rgba(12,12,25,.96)!important;color:#e0e0e0!important;border:1px solid #444!important;border-radius:8px!important}
+  .leaflet-popup-tip{background:rgba(12,12,25,.96)!important}
+  .leaflet-popup-content{margin:10px 14px!important;font-size:12px!important;line-height:1.5!important}
+  .pt{font-size:14px;font-weight:700;margin-bottom:5px}
+  .pr{display:flex;justify-content:space-between;padding:2px 0;gap:10px}
+  .pl{color:#888;flex-shrink:0}.pv{font-weight:600;text-align:right}
+  .pd{border-top:1px solid #333;margin:5px 0}
+  .pn{font-size:11px;color:#aaa;margin-top:4px;line-height:1.4}
+  #info::-webkit-scrollbar{width:4px}#info::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="pnl" id="ttl"><h1>Oceania & Australia Oil & Gas Infrastructure</h1><p>Pipelines, fields, LNG export terminals | Data as of April 2026</p></div>
+<div id="flt">
+  <button class="fb on" onclick="sf('all',this)">All</button>
+  <button class="fb" onclick="sf('pipes',this)">Pipelines</button>
+  <button class="fb" onclick="sf('fields',this)">Fields</button>
+  <button class="fb" onclick="sf('lng',this)">LNG</button>
+</div>
+<div class="pnl" id="info">
+  <h2>Oceania/Australia Overview</h2>
+  <div class="st"><span class="sl">Pipelines</span><span class="sv" style="color:#00aaff">9</span></div>
+  <div class="st"><span class="sl">Oil/Gas Fields</span><span class="sv" style="color:#aa44ff">20</span></div>
+  <div class="st"><span class="sl">LNG Facilities</span><span class="sv" style="color:#00cc66">11</span></div>
+  <div style="margin-top:12px"><h2>Key Facts</h2>
+    <div style="font-size:11px;line-height:1.6;color:#aaa;margin-top:4px">
+      <div style="margin-bottom:4px"><span class="sb s-a">Australia</span> World's largest LNG exporter (~80 mtpa across 10 facilities)</div>
+      <div style="margin-bottom:4px"><span class="sb s-a">WA</span> Pilbara coast: NWS, Gorgon, Wheatstone LNG mega-projects</div>
+      <div style="margin-bottom:4px"><span class="sb s-a">QLD</span> Curtis Island: 3 CSG-to-LNG plants (world first)</div>
+      <div style="margin-bottom:4px"><span class="sb s-a">NT</span> Ichthys & Darwin LNG at Bladin Point</div>
+      <div style="margin-bottom:4px"><span class="sb s-v">PNG</span> PNG LNG overperforming; Papua LNG under construction</div>
+    </div>
+  </div>
+  <div style="margin-top:12px"><h2>Selected Item</h2><div id="sel" style="font-size:11px;color:#666;padding:6px 0">Click any element for details</div></div>
+</div>
+<div class="pnl" id="lgd">
+  <h3>Legend</h3>
+  <div class="li"><div class="ll" style="background:#00aaff"></div> Gas Pipeline</div>
+  <div class="li"><div class="ll" style="background:#8888cc;height:1px;border:1px dashed #8888cc"></div> Proposed</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ff6b00,#cc3300);border:1px solid #ff9944"></div> Oil Field</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00aaff,#0055cc);border:1px solid #44ccff"></div> Gas Field</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#aa44ff,#6600aa);border:1px solid #cc77ff"></div> Oil+Gas</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ccaa00,#886600);border:1px solid #eedd44"></div> Coal Seam Gas</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#008844);border:1px solid #44ee88"></div> LNG Terminal</div>
+</div>
+
+<script>
+const map=L.map('map',{center:[-22,135],zoom:4,minZoom:3,maxZoom:10,zoomControl:false});
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OSM &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+
+const pipes=[
+  {n:"DBNGP (Dampier-Bunbury)",t:"gas",s:"active",cap:"845 TJ/day",len:"1,530 km",d:"Major gas trunkline. NW Shelf to Perth/Bunbury. Vital for WA domestic supply.",c:"Australia (WA)",y:1984,
+   coords:[[-20.66,116.71],[-20.73,116.85],[-21.64,115.11],[-22.00,114.50],[-24.88,113.66],[-28.77,114.62],[-29.82,115.27],[-31.95,115.86],[-33.33,115.64]]},
+  {n:"Moomba-Sydney Pipeline",t:"gas",s:"active",cap:"500 TJ/day",len:"2,029 km",d:"Cooper Basin to Sydney. Also supplies Canberra. East coast backbone.",c:"Australia (SA/NSW)",y:1976,
+   coords:[[-28.10,140.20],[-34.31,148.30],[-35.28,149.13],[-34.24,150.69]]},
+  {n:"Eastern Gas Pipeline",t:"gas",s:"active",cap:"289 TJ/day",len:"795 km",d:"Longford (Bass Strait) to Sydney. Alternative south-to-north route.",c:"Australia (VIC/NSW)",y:2000,
+   coords:[[-38.31,147.07],[-37.70,148.45],[-36.67,149.84],[-34.88,150.60],[-33.84,150.85]]},
+  {n:"SWQP (Ballera-Wallumbilla)",t:"gas",s:"active",cap:"385 TJ/day",len:"937 km",d:"Cooper Basin to Wallumbilla hub (QLD). Bidirectional. Key east coast link.",c:"Australia (QLD)",y:1996,
+   coords:[[-27.40,141.80],[-26.60,144.50],[-26.58,149.18]]},
+  {n:"Queensland Gas Pipeline",t:"gas",s:"active",cap:"Various",len:"627 km",d:"Wallumbilla hub to Gladstone. Feeds LNG precinct at Curtis Island.",c:"Australia (QLD)",y:1989,
+   coords:[[-26.58,149.18],[-25.70,149.90],[-23.85,151.27]]},
+  {n:"PNG-Queensland Pipeline",t:"gas",s:"proposed",cap:"TBD",len:"~4,000 km",d:"Proposed: PNG Highlands to Gladstone via Cape York. Never progressed to FID.",c:"PNG, Australia",
+   coords:[[-6.40,143.00],[-9.08,143.20],[-10.00,142.50],[-11.00,142.53],[-19.25,146.80],[-23.85,151.27]]},
+  {n:"Taranaki Gas Network (NZ)",t:"gas",s:"active",cap:"Various",len:"Network",d:"NZ gas backbone. Taranaki fields to Auckland (north) and Wellington (south).",c:"New Zealand",
+   coords:[[-39.29,173.82],[-39.07,174.19],[-39.43,174.17],[-37.55,175.16],[-36.85,174.76]],
+   branch:[[-39.43,174.17],[-41.29,174.78]]},
+  {n:"Goldfields Gas Pipeline",t:"gas",s:"active",cap:"Various",len:"1,380 km",d:"NW Shelf area to Kalgoorlie goldfields. Powers mining operations.",c:"Australia (WA)",y:1996,
+   coords:[[-21.55,115.95],[-23.35,119.73],[-27.82,120.70],[-30.75,121.47]]},
+  {n:"Moomba-Adelaide Pipeline (MAPS)",t:"gas",s:"active",cap:"Various",len:"1,185 km",d:"Moomba hub to Adelaide. One of Australia's oldest major gas pipelines.",c:"Australia (SA)",y:1969,
+   coords:[[-28.10,140.20],[-32.49,137.78],[-34.93,138.60]]},
+];
+
+const fields=[
+  {n:"North West Shelf",c:"Australia (WA)",t:"gas",lat:-19.60,lng:116.15,prod:"~36 bcm/yr gas",res:"40 Tcf",s:"active",y:1984,d:"Australia's original gas province. Feeds Karratha LNG. Woodside-operated. Mature but significant."},
+  {n:"Gorgon / Jansz-Io",c:"Australia (WA)",t:"gas",lat:-20.50,lng:114.70,prod:"LNG: 15.6 mtpa",res:"40 Tcf",s:"active",y:2016,d:"Massive fields feeding Gorgon LNG on Barrow Island. Chevron. ~US$54B mega-project."},
+  {n:"Wheatstone / Julimar",c:"Australia (WA)",t:"gas",lat:-19.80,lng:115.30,prod:"LNG: 8.9 mtpa",res:"12 Tcf",s:"active",y:2017,d:"Chevron. Feeds Wheatstone LNG near Onslow."},
+  {n:"Ichthys Field",c:"Australia (Browse)",t:"gas",lat:-12.80,lng:124.50,prod:"LNG: 8.9 mtpa",res:"12.8 Tcf",s:"active",y:2018,d:"INPEX. Gas piped 890 km to Darwin. Japan's largest overseas investment."},
+  {n:"Browse Basin (undeveloped)",c:"Australia",t:"gas",lat:-13.80,lng:123.00,prod:"Undeveloped",res:"15 Tcf",s:"appraisal",d:"Woodside. Proposed tie-back to NWS LNG. Long-delayed."},
+  {n:"Bass Strait (Gippsland)",c:"Australia (VIC)",t:"mix",lat:-38.80,lng:148.20,prod:"Declining",res:"Mature - multiple fields",s:"declining",y:1965,d:"Australia's most prolific historical province. ExxonMobil/BHP JV."},
+  {n:"Cooper Basin",c:"Australia (SA/QLD)",t:"mix",lat:-28.00,lng:140.00,prod:"Gas + oil",res:"Major onshore basin",s:"active",y:1963,d:"Moomba hub. Santos/Beach Energy. CCS project operational."},
+  {n:"Surat/Bowen CSG",c:"Australia (QLD)",t:"csg",lat:-26.50,lng:149.50,prod:"Feeds 3 LNG plants",res:"Vast - thousands of wells",s:"active",d:"Coal seam gas. Feeds Gladstone LNG precinct. Major water management challenges."},
+  {n:"Prelude Field",c:"Australia (Browse)",t:"gas",lat:-12.40,lng:123.90,prod:"3.6 mtpa (intermittent)",res:"3 Tcf",s:"intermittent",y:2018,d:"Shell FLNG - world's largest floating structure. Plagued by shutdowns."},
+  {n:"PNG Highlands (Hides/Kutubu)",c:"Papua New Guinea",t:"mix",lat:-6.00,lng:142.70,prod:"8.3 mtpa LNG equiv",res:"Multiple fields",s:"active",d:"Feeds PNG LNG. P'nyang under appraisal for Papua LNG."},
+  {n:"Maui Gas Field",c:"New Zealand",t:"gas",lat:-39.55,lng:173.25,prod:"Declining",res:"Largely depleted",s:"declining",y:1979,d:"NZ's largest historical gas field. Now largely depleted."},
+  {n:"Pohokura Gas Field",c:"New Zealand",t:"gas",lat:-39.12,lng:174.30,prod:"NZ's largest producing",res:"Moderate",s:"active",y:2006,d:"Currently NZ's largest producing gas field. Taranaki."},
+  {n:"Moomba Gas Hub",c:"Australia (SA)",t:"gas",lat:-28.10,lng:140.20,prod:"Processing hub",res:"Hub / junction",s:"active",y:1969,d:"Major pipeline junction. Cooper Basin processing hub for MAPS, MSP, and SWQP pipelines."},
+  {n:"Perth Demand Centre",c:"Australia (WA)",t:"gas",lat:-31.95,lng:115.86,prod:"Demand centre",res:"N/A",s:"active",d:"WA's main gas demand centre. End-point of DBNGP from Dampier."},
+  {n:"Sydney Demand Centre",c:"Australia (NSW)",t:"gas",lat:-33.84,lng:150.85,prod:"Demand centre",res:"N/A",s:"active",d:"NSW's main gas demand centre. Endpoint of Moomba-Sydney and Eastern Gas pipelines."},
+  {n:"Wallumbilla Hub",c:"Australia (QLD)",t:"gas",lat:-26.58,lng:149.18,prod:"Hub / junction",res:"Hub",s:"active",d:"Key east-coast gas hub and trading point. Junction for SWQP and QGP."},
+  {n:"Adelaide Demand Centre",c:"Australia (SA)",t:"gas",lat:-34.93,lng:138.60,prod:"Demand centre",res:"N/A",s:"active",d:"SA's main gas demand centre. Endpoint of Moomba-Adelaide Pipeline (MAPS)."},
+  {n:"Kalgoorlie Mining Hub",c:"Australia (WA)",t:"gas",lat:-30.75,lng:121.47,prod:"Mining demand",res:"N/A",s:"active",d:"Goldfields mining hub. Endpoint of Goldfields Gas Pipeline. Powers mining operations."},
+  {n:"Auckland Demand Centre",c:"New Zealand",t:"gas",lat:-36.85,lng:174.76,prod:"Demand centre",res:"N/A",s:"active",d:"NZ's largest city. Northern endpoint of Taranaki gas network."},
+  {n:"Wellington Demand Centre",c:"New Zealand",t:"gas",lat:-41.29,lng:174.78,prod:"Demand centre",res:"N/A",s:"active",d:"NZ capital. Southern endpoint of Taranaki gas network."},
+];
+
+const lngs=[
+  {n:"NWS LNG (Karratha)",c:"Australia",lat:-20.73,lng:116.77,cap:"16.9 mtpa (5 trains)",s:"active",y:1989,d:"Australia's first LNG. Woodside. Seeking backfill gas."},
+  {n:"Gorgon LNG (Barrow Is.)",c:"Australia",lat:-20.79,lng:115.39,cap:"15.6 mtpa (3 trains)",s:"active",y:2016,d:"Chevron. On nature reserve. US$54B. Includes CCS."},
+  {n:"Wheatstone LNG (Onslow)",c:"Australia",lat:-21.76,lng:114.97,cap:"8.9 mtpa (2 trains)",s:"active",y:2017,d:"Chevron. Also domestic gas plant."},
+  {n:"Ichthys LNG (Darwin)",c:"Australia",lat:-12.52,lng:130.89,cap:"8.9 mtpa (2 trains)",s:"active",y:2018,d:"INPEX. 890 km subsea pipe from field."},
+  {n:"Darwin LNG",c:"Australia",lat:-12.49,lng:130.85,cap:"3.7 mtpa (1 train)",s:"active",y:2006,d:"Santos. Being backfilled by Barossa field."},
+  {n:"GLNG (Curtis Is.)",c:"Australia",lat:-23.78,lng:151.40,cap:"7.8 mtpa (2 trains)",s:"active",y:2015,d:"Santos. CSG-to-LNG."},
+  {n:"QCLNG (Curtis Is.)",c:"Australia",lat:-23.77,lng:151.40,cap:"8.5 mtpa (2 trains)",s:"active",y:2015,d:"Shell/QGC. World's first CSG-to-LNG."},
+  {n:"APLNG (Curtis Is.)",c:"Australia",lat:-23.76,lng:151.40,cap:"9.0 mtpa (2 trains)",s:"active",y:2016,d:"ConocoPhillips/Origin. Largest Gladstone LNG."},
+  {n:"Prelude FLNG",c:"Australia",lat:-12.40,lng:123.90,cap:"3.6 mtpa",s:"intermittent",y:2018,d:"Shell. World's largest floating structure (488m). Reliability issues."},
+  {n:"PNG LNG",c:"Papua New Guinea",lat:-8.30,lng:147.02,cap:"8.3 mtpa (2 trains)",s:"active",y:2014,d:"ExxonMobil. Consistently overperforms nameplate capacity."},
+  {n:"Papua LNG",c:"Papua New Guinea",lat:-8.32,lng:147.00,cap:"5.4 mtpa (planned)",s:"construction",d:"TotalEnergies. FID 2024. Expected 2028."},
+];
+
+const L_pipes=L.layerGroup(),L_fields=L.layerGroup(),L_lng=L.layerGroup();
+
+function sc(s){return{active:'s-a',intermittent:'s-l',declining:'s-l',proposed:'s-p',construction:'s-v',appraisal:'s-p'}[s]||'s-a'}
+function sl(s){return{active:'Active',intermittent:'Intermittent',declining:'Declining',proposed:'Proposed',construction:'Under construction',appraisal:'Under appraisal'}[s]||s}
+
+pipes.forEach(p=>{
+  const isP=p.s==='proposed';
+  const line=L.polyline(p.coords,{color:'#00aaff',weight:isP?1.5:2.5,opacity:isP?.25:.8,dashArray:isP?'4,8':null,interactive:false,_d:p});
+  line.addTo(L_pipes);
+  const hit=L.polyline(p.coords,{color:'#00aaff',weight:15,opacity:0,_d:p});
+  hit.bindTooltip(`<b>${p.n}</b><br><span style="color:#aaa">${p.cap} · ${p.len}</span><br><span style="color:#888;font-size:10px">${p.d.substring(0,120)}…</span>`,{sticky:true,className:'pipe-tt'});
+  hit.bindPopup(`<div class="pt" style="color:#00aaff">${p.n}</div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(p.s)}">${sl(p.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Capacity</span><span class="pv">${p.cap}</span></div>
+    <div class="pr"><span class="pl">Length</span><span class="pv">${p.len}</span></div>
+    <div class="pr"><span class="pl">Region</span><span class="pv" style="font-size:10px">${p.c}</span></div>
+    ${p.y?`<div class="pr"><span class="pl">Year</span><span class="pv">${p.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${p.d}</div>`,{maxWidth:300});
+  hit.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:#fff">${p.n}</div><div style="color:#888">${p.c}</div><div>Capacity: ${p.cap}</div><div>Length: ${p.len}</div>`});
+  hit.addTo(L_pipes);
+  if(p.branch){
+    L.polyline(p.branch,{color:'#00aaff',weight:2,opacity:.7,interactive:false}).addTo(L_pipes);
+    const bHit=L.polyline(p.branch,{color:'#00aaff',weight:15,opacity:0});
+    bHit.bindTooltip(`<b>${p.n}</b><br><span style="color:#aaa">${p.cap} · ${p.len}</span><br><span style="color:#888;font-size:10px">${p.d.substring(0,120)}…</span>`,{sticky:true,className:'pipe-tt'});
+    bHit.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:#fff">${p.n}</div><div style="color:#888">${p.c}</div><div>Capacity: ${p.cap}</div><div>Length: ${p.len}</div>`});
+    bHit.addTo(L_pipes);
+  }
+});
+
+fields.forEach(f=>{
+  const cls=f.t==='oil'?'oil':f.t==='gas'?'gas':f.t==='csg'?'csg':'mix';
+  const anim=f.s!=='appraisal'?' a':'';
+  const sz=f.s==='declining'||f.s==='appraisal'?14:18;
+  const icon=L.divIcon({className:'',html:`<div class="pm ${cls}${anim}" style="width:${sz}px;height:${sz}px"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+  const clr=f.t==='oil'?'#ff6b00':f.t==='gas'?'#00aaff':f.t==='csg'?'#ccaa00':'#aa44ff';
+  const m=L.marker([f.lat,f.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:${clr}">${f.n}</div>
+    <div class="pr"><span class="pl">Location</span><span class="pv">${f.c}</span></div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(f.s)}">${sl(f.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Production</span><span class="pv" style="font-size:11px;max-width:150px;text-align:right">${f.prod}</span></div>
+    <div class="pr"><span class="pl">Reserves</span><span class="pv" style="font-size:11px;max-width:150px;text-align:right">${f.res}</span></div>
+    ${f.y?`<div class="pr"><span class="pl">Year</span><span class="pv">${f.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${f.d}</div>`,{maxWidth:300});
+  m.on('click',()=>{document.getElementById('sel').innerHTML=`<div style="font-weight:700;color:#fff">${f.n}</div><div style="color:#888">${f.c}</div><div>Production: ${f.prod}</div>`});
+  m.addTo(L_fields);
+});
+
+lngs.forEach(l=>{
+  const sz=parseFloat(l.cap)>10?16:12;
+  const icon=L.divIcon({className:'',html:`<div class="pm lng${l.s!=='proposed'?' a':''}" style="width:${sz}px;height:${sz}px;${l.s==='intermittent'?'opacity:.6':''}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+  const m=L.marker([l.lat,l.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:#00cc66">${l.n}</div>
+    <div class="pr"><span class="pl">Country</span><span class="pv">${l.c}</span></div>
+    <div class="pr"><span class="pl">Status</span><span class="pv"><span class="sb ${sc(l.s)}">${sl(l.s)}</span></span></div><div class="pd"></div>
+    <div class="pr"><span class="pl">Capacity</span><span class="pv">${l.cap}</span></div>
+    ${l.y?`<div class="pr"><span class="pl">Year</span><span class="pv">${l.y}</span></div>`:''}<div class="pd"></div>
+    <div class="pn">${l.d}</div>`,{maxWidth:280});
+  m.addTo(L_lng);
+});
+
+[L_pipes,L_fields,L_lng].forEach(l=>l.addTo(map));
+
+function sf(f,b){
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  [L_pipes,L_fields,L_lng].forEach(l=>map.removeLayer(l));
+  if(f==='all'||f==='pipes') map.addLayer(L_pipes);
+  if(f==='all'||f==='fields') map.addLayer(L_fields);
+  if(f==='all'||f==='lng') map.addLayer(L_lng);
+}
+
+let dOff=0;
+(function anim(){dOff-=.4;L_pipes.eachLayer(l=>{if(l.options&&l.options._d){const d=l.options._d;if(d.s==='active'){const e=l.getElement();if(e){e.style.strokeDasharray='8,6';e.style.strokeDashoffset=dOff}}}});requestAnimationFrame(anim)})();
+</script>
+</body>
+</html>

@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Europe Oil & Gas Infrastructure Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #e0e0e0; }
+  #map { width: 100vw; height: 100vh; }
+
+  @keyframes pulse { 0%{transform:scale(1);opacity:0.9} 50%{transform:scale(1.2);opacity:0.55} 100%{transform:scale(1);opacity:0.9} }
+  .pulse-marker { border-radius: 50%; cursor: pointer; }
+  .pulse-marker.animated { animation: pulse 2.5s ease-in-out infinite; }
+  .pulse-marker.oil { background: radial-gradient(circle, #ff6b00, #cc3300); border: 2px solid #ff9944; box-shadow: 0 0 10px rgba(255,107,0,0.5); }
+  .pulse-marker.gas { background: radial-gradient(circle, #00aaff, #0055cc); border: 2px solid #44ccff; box-shadow: 0 0 10px rgba(0,170,255,0.5); }
+  .pulse-marker.oil_and_gas, .pulse-marker.gas_and_oil { background: radial-gradient(circle, #aa44ff, #6600aa); border: 2px solid #cc77ff; box-shadow: 0 0 10px rgba(170,68,255,0.5); }
+  .pulse-marker.lng { background: radial-gradient(circle, #00cc66, #008844); border: 2px solid #44ee88; box-shadow: 0 0 10px rgba(0,204,102,0.5); }
+  .pulse-marker.hub { background: radial-gradient(circle, #ffdd00, #cc9900); border: 2px solid #ffee44; box-shadow: 0 0 10px rgba(255,221,0,0.5); }
+
+  /* Panels */
+  .panel { position:absolute; z-index:1000; background:rgba(10,10,20,0.93); border:1px solid #333; border-radius:10px; padding:14px 18px; backdrop-filter:blur(8px); }
+  #title-bar { top:10px; left:50%; transform:translateX(-50%); text-align:center; }
+  #title-bar h1 { font-size:17px; color:#fff; letter-spacing:0.5px; }
+  #title-bar p { font-size:11px; color:#888; margin-top:2px; }
+
+  #info-panel { top:10px; right:10px; width:310px; max-height:calc(100vh - 20px); overflow-y:auto; }
+  #info-panel h2 { font-size:14px; margin-bottom:8px; color:#fff; }
+  .stat { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1a1a2a; font-size:12px; }
+  .stat-label { color:#888; }
+  .stat-value { color:#fff; font-weight:600; }
+
+  #legend { bottom:30px; left:10px; }
+  #legend h3 { font-size:12px; margin-bottom:6px; color:#fff; }
+  .legend-item { display:flex; align-items:center; gap:7px; margin:4px 0; font-size:11px; }
+  .legend-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+  .legend-line { width:28px; height:3px; flex-shrink:0; border-radius:1px; }
+
+  #filters { position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .filter-btn { background:rgba(10,10,20,0.85); border:1px solid #444; color:#ccc; padding:5px 13px; border-radius:18px; cursor:pointer; font-size:11px; transition:all 0.2s; white-space:nowrap; }
+  .filter-btn:hover { border-color:#888; color:#fff; }
+  .filter-btn.active { border-color:#fff; color:#fff; background:rgba(255,255,255,0.1); }
+
+  /* Status badges */
+  .status-badge { display:inline-block; padding:1px 6px; border-radius:8px; font-size:10px; font-weight:600; }
+  .status-active { background:rgba(0,200,80,0.2); color:#00cc55; border:1px solid #00cc55; }
+  .status-damaged { background:rgba(255,50,50,0.2); color:#ff4444; border:1px solid #ff4444; }
+  .status-shut { background:rgba(150,150,150,0.2); color:#999; border:1px solid #666; }
+  .status-limited { background:rgba(255,170,0,0.2); color:#ffaa00; border:1px solid #ffaa00; }
+  .status-proposed { background:rgba(100,100,200,0.2); color:#8888cc; border:1px solid #8888cc; }
+  .status-dev { background:rgba(0,170,255,0.2); color:#00aaff; border:1px solid #00aaff; }
+
+  /* Popup styling */
+  .leaflet-popup-content-wrapper { background:rgba(12,12,25,0.96)!important; color:#e0e0e0!important; border:1px solid #444!important; border-radius:8px!important; }
+  .leaflet-popup-tip { background:rgba(12,12,25,0.96)!important; }
+  .leaflet-popup-content { margin:10px 14px!important; font-size:12px!important; line-height:1.5!important; }
+  .popup-title { font-size:14px; font-weight:700; margin-bottom:5px; }
+  .popup-row { display:flex; justify-content:space-between; padding:2px 0; gap:10px; }
+  .popup-label { color:#888; flex-shrink:0; }
+  .popup-value { font-weight:600; text-align:right; }
+  .popup-divider { border-top:1px solid #333; margin:5px 0; }
+  .popup-note { font-size:11px; color:#aaa; margin-top:4px; line-height:1.4; }
+
+  /* Pipeline tooltip */
+  .pipe-tt{background:rgba(10,10,25,.94)!important;border:1px solid #555!important;border-radius:6px!important;padding:6px 10px!important;font-size:11px!important;line-height:1.4!important;max-width:280px!important;color:#e0e0e0!important;box-shadow:0 4px 12px rgba(0,0,0,.5)!important}
+  .pipe-tt .leaflet-tooltip-arrow{display:none}
+
+  /* Scrollbar */
+  #info-panel::-webkit-scrollbar { width:4px; }
+  #info-panel::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="panel" id="title-bar">
+  <h1>European Oil & Gas Infrastructure</h1>
+  <p>Pipelines, fields, LNG terminals & gas hubs | Data as of April 2026</p>
+</div>
+
+<div id="filters">
+  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" onclick="setFilter('gas_pipes',this)">Gas Pipelines</button>
+  <button class="filter-btn" onclick="setFilter('oil_pipes',this)">Oil Pipelines</button>
+  <button class="filter-btn" onclick="setFilter('fields',this)">Fields</button>
+  <button class="filter-btn" onclick="setFilter('lng',this)">LNG Terminals</button>
+  <button class="filter-btn" onclick="setFilter('hubs',this)">Gas Hubs</button>
+  <button class="filter-btn" onclick="setFilter('active_only',this)">Active Only</button>
+  <button class="filter-btn" onclick="setFilter('damaged',this)">Damaged/Shut</button>
+</div>
+
+<div class="panel" id="info-panel">
+  <h2>Infrastructure Overview</h2>
+  <div class="stat"><span class="stat-label">Gas Pipelines</span><span class="stat-value" style="color:#00aaff">21</span></div>
+  <div class="stat"><span class="stat-label">Oil Pipelines</span><span class="stat-value" style="color:#ff6b00">6</span></div>
+  <div class="stat"><span class="stat-label">Oil/Gas Fields</span><span class="stat-value" style="color:#aa44ff">21</span></div>
+  <div class="stat"><span class="stat-label">LNG Terminals</span><span class="stat-value" style="color:#00cc66">28</span></div>
+  <div class="stat"><span class="stat-label">Gas Hubs</span><span class="stat-value" style="color:#ffdd00">12</span></div>
+  <div style="margin-top:12px;">
+    <h2>Key Events (2022-2026)</h2>
+    <div style="font-size:11px; line-height:1.6; color:#aaa; margin-top:4px;">
+      <div style="margin-bottom:4px;"><span class="status-badge status-damaged">2022</span> Nord Stream 1 & 2 sabotaged</div>
+      <div style="margin-bottom:4px;"><span class="status-badge status-shut">2024</span> Ukraine-Russia gas transit ended</div>
+      <div style="margin-bottom:4px;"><span class="status-badge status-shut">2024</span> Groningen field permanently closed</div>
+      <div style="margin-bottom:4px;"><span class="status-badge status-active">2022+</span> Germany adds 5 LNG FSRUs</div>
+      <div style="margin-bottom:4px;"><span class="status-badge status-active">2020</span> Southern Gas Corridor operational</div>
+    </div>
+  </div>
+  <div style="margin-top:12px;">
+    <h2>Selected Item</h2>
+    <div id="sel" style="font-size:11px; color:#666; padding:6px 0;">Click any element for details</div>
+  </div>
+</div>
+
+<div class="panel" id="legend">
+  <h3>Legend</h3>
+  <div class="legend-item"><div class="legend-line" style="background:#00aaff;"></div> Gas Pipeline (active)</div>
+  <div class="legend-item"><div class="legend-line" style="background:#00aaff; opacity:0.3;"></div> Gas Pipeline (shut/damaged)</div>
+  <div class="legend-item"><div class="legend-line" style="background:#ff6b00;"></div> Oil Pipeline</div>
+  <div class="legend-item"><div class="legend-line" style="background:#8888cc; border:1px dashed #8888cc; height:1px;"></div> Proposed</div>
+  <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#ff6b00,#cc3300); border:1px solid #ff9944;"></div> Oil Field</div>
+  <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#00aaff,#0055cc); border:1px solid #44ccff;"></div> Gas Field</div>
+  <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#aa44ff,#6600aa); border:1px solid #cc77ff;"></div> Oil+Gas Field</div>
+  <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#00cc66,#008844); border:1px solid #44ee88;"></div> LNG Terminal</div>
+  <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#ffdd00,#cc9900); border:1px solid #ffee44;"></div> Gas Hub</div>
+</div>
+
+<script>
+const map = L.map('map', { center: [50, 15], zoom: 4, minZoom: 3, maxZoom: 10, zoomControl: false });
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+// ======================== DATA ========================
+
+const gasPipelines = [
+  { name:"Nord Stream 1", status:"damaged", capacity:"55 bcm/yr", length:"1,224 km", detail:"Sabotaged Sep 2022. Three of four lines ruptured. Not repaired.", year:2011,
+    coords:[[60.71,28.75],[59.85,26.50],[59.60,24.00],[59.20,22.50],[58.50,19.80],[57.50,19.50],[56.80,18.50],[55.53,15.72],[55.10,15.00],[54.30,13.80],[54.14,13.67]],
+    countries:"Russia, Finland (EEZ), Sweden (EEZ), Denmark (EEZ), Germany" },
+  { name:"Nord Stream 2", status:"damaged", capacity:"55 bcm/yr", length:"1,234 km", detail:"Completed 2021 but never certified. Sabotaged Sep 2022.", year:null,
+    coords:[[59.68,28.40],[59.70,26.00],[59.50,23.50],[58.20,19.70],[57.30,19.40],[55.50,15.60],[54.80,14.50],[54.14,13.67]],
+    countries:"Russia, Finland (EEZ), Sweden (EEZ), Denmark (EEZ), Germany" },
+  { name:"Yamal-Europe Pipeline", status:"limited", capacity:"33 bcm/yr", length:"4,107 km", detail:"Flows restricted/reversed since 2022. Polish section nationalized.", year:1999,
+    coords:[[57.04,34.96],[54.78,32.05],[54.50,30.42],[54.51,30.43],[53.90,27.57],[53.22,26.68],[53.09,25.31],[53.17,23.65],[52.99,22.25],[52.88,20.62],[52.66,19.07],[52.61,16.58],[52.46,14.60],[52.46,14.50]],
+    countries:"Russia, Belarus, Poland, Germany" },
+  { name:"Brotherhood (Urengoy-Pomary-Uzhhorod)", status:"shut", capacity:"100 bcm/yr", length:"4,451 km", detail:"Ukraine transit ended Dec 31, 2024. No longer carries Russian gas.", year:1984,
+    coords:[[65.97,78.37],[56.50,43.80],[51.18,35.28],[49.99,36.23],[49.59,34.55],[49.07,33.42],[48.75,30.22],[48.97,23.99],[48.62,22.30],[48.68,22.08],[48.15,17.11],[48.34,16.95]],
+    countries:"Russia, Ukraine, Slovakia, Austria" },
+  { name:"Brotherhood - Czech/German branch", status:"shut", capacity:"part of Brotherhood", length:"~800 km", detail:"Lanzhot to Waidhaus via Prague.", year:1984,
+    coords:[[48.72,16.97],[49.20,16.61],[50.08,14.44],[49.64,12.50]],
+    countries:"Czech Republic, Germany" },
+  { name:"Brotherhood - TAG (to Italy)", status:"shut", capacity:"part of Brotherhood", length:"~380 km", detail:"Baumgarten to Tarvisio.", year:1984,
+    coords:[[48.34,16.95],[46.55,13.71],[46.51,13.59]],
+    countries:"Austria, Italy" },
+  { name:"Soyuz Pipeline", status:"shut", capacity:"32 bcm/yr", length:"2,750 km", detail:"Part of Ukraine transit system. Ended Dec 31, 2024.", year:1979,
+    coords:[[51.77,55.10],[51.23,51.37],[50.15,48.55],[49.00,39.80],[49.07,33.42],[48.97,23.99],[48.62,22.30]],
+    countries:"Russia, Kazakhstan, Ukraine" },
+  { name:"TurkStream (offshore)", status:"active", capacity:"31.5 bcm/yr", length:"930 km", detail:"Two lines: Line 1 to Turkey, Line 2 to SE Europe via Bulgaria, Serbia, Hungary.", year:2020,
+    coords:[[44.89,37.32],[44.60,37.40],[43.50,34.00],[42.80,31.50],[42.50,30.00],[41.90,28.50],[41.64,28.09]],
+    countries:"Russia, Turkey" },
+  { name:"TurkStream (European onshore)", status:"active", capacity:"15.75 bcm/yr", length:"~950 km", detail:"Line 2 continuation to Hungary via Bulgaria, Serbia.", year:2020,
+    coords:[[41.64,28.09],[41.40,27.30],[41.98,27.52],[42.70,23.32],[43.32,21.90],[44.79,20.47],[46.15,19.98]],
+    countries:"Turkey, Bulgaria, Serbia, Hungary" },
+  { name:"Blue Stream", status:"active", capacity:"16 bcm/yr", length:"1,213 km", detail:"Russian gas to Turkey across the Black Sea.", year:2005,
+    coords:[[45.37,41.70],[44.37,38.53],[44.35,38.50],[43.00,37.50],[42.00,36.80],[41.73,36.37],[41.29,36.33],[39.93,32.87]],
+    countries:"Russia, Turkey" },
+  { name:"TAP (Trans-Adriatic)", status:"active", capacity:"10 bcm/yr", length:"878 km", detail:"Part of Southern Gas Corridor. Azerbaijani gas to Italy.", year:2020,
+    coords:[[41.08,26.35],[41.12,25.40],[40.94,24.40],[40.50,22.90],[40.52,21.30],[40.47,21.08],[40.62,20.78],[40.70,19.95],[40.72,19.56],[40.65,19.30],[40.45,18.85],[40.27,18.40]],
+    countries:"Greece, Albania, Italy" },
+  { name:"TANAP (Trans-Anatolian)", status:"active", capacity:"16 bcm/yr", length:"1,841 km", detail:"Azerbaijani gas across Turkey. Feeds TAP to Europe.", year:2018,
+    coords:[[41.51,43.33],[41.11,42.70],[40.60,43.10],[39.91,41.27],[40.26,40.22],[39.75,37.01],[39.82,34.80],[39.15,34.17],[39.93,32.87],[39.78,30.52],[40.05,29.98],[40.18,29.06],[40.15,26.41],[41.00,27.51],[40.92,26.38]],
+    countries:"Turkey" },
+  { name:"South Caucasus Pipeline (SCP)", status:"active", capacity:"25 bcm/yr", length:"692 km", detail:"Azerbaijan to Turkey border via Georgia. Feeds TANAP.", year:2006,
+    coords:[[40.18,49.47],[40.34,48.15],[40.62,47.15],[41.00,45.63],[41.05,45.10],[41.69,44.80],[41.54,44.48],[41.64,43.49],[41.51,43.33]],
+    countries:"Azerbaijan, Georgia" },
+  { name:"Interconnector (IUK)", status:"active", capacity:"25.5 bcm/yr", length:"235 km", detail:"Bi-directional UK-Belgium subsea pipeline.", year:1998,
+    coords:[[52.86,1.53],[52.10,2.30],[51.33,3.20]],
+    countries:"UK, Belgium" },
+  { name:"BBL Pipeline", status:"active", capacity:"15 bcm/yr", length:"235 km", detail:"Netherlands-UK subsea. Bi-directional since 2019.", year:2006,
+    coords:[[52.96,4.75],[52.90,3.10],[52.86,1.53]],
+    countries:"Netherlands, UK" },
+  { name:"Langeled", status:"active", capacity:"25.5 bcm/yr", length:"1,166 km", detail:"World's longest subsea gas pipeline. Norway to UK.", year:2007,
+    coords:[[62.83,6.56],[62.50,5.00],[61.00,3.50],[58.37,1.91],[57.00,1.50],[55.50,1.00],[54.50,0.50],[53.65,0.11]],
+    countries:"Norway, UK" },
+  { name:"Europipe I", status:"active", capacity:"18 bcm/yr", length:"620 km", detail:"Norwegian North Sea to Germany.", year:1995,
+    coords:[[58.19,2.47],[56.50,4.50],[54.50,6.50],[53.65,7.28]],
+    countries:"Norway (offshore), Germany" },
+  { name:"Europipe II", status:"active", capacity:"24 bcm/yr", length:"658 km", detail:"Norway (Karsto) to Germany (Dornum).", year:1999,
+    coords:[[59.28,5.53],[58.50,4.50],[56.00,5.50],[54.20,6.80],[53.65,7.28]],
+    countries:"Norway, Germany" },
+  { name:"Baltic Pipe", status:"active", capacity:"10 bcm/yr", length:"900 km", detail:"Norwegian gas to Poland via Denmark. Operational Nov 2022.", year:2022,
+    coords:[[56.50,4.80],[56.00,6.00],[55.70,8.15],[55.60,9.50],[55.35,10.40],[55.45,11.80],[55.25,12.20],[55.00,13.50],[54.80,14.20],[54.10,15.08]],
+    countries:"Norway (offshore), Denmark, Sweden (EEZ), Poland" },
+  { name:"Medgaz", status:"active", capacity:"10.5 bcm/yr", length:"210 km", detail:"Direct Algeria-Spain subsea link.", year:2011,
+    coords:[[32.93,3.28],[35.30,-1.38],[36.05,-1.90],[36.84,-2.44]],
+    countries:"Algeria, Spain" },
+  { name:"Transmed / Enrico Mattei", status:"active", capacity:"33.5 bcm/yr", length:"2,475 km", detail:"Algeria via Tunisia to Italy. Major supply route.", year:1983,
+    coords:[[32.93,3.28],[36.05,8.25],[36.50,9.50],[37.06,11.01],[37.10,11.10],[37.30,12.00],[37.66,12.59],[37.80,14.20],[38.23,15.60],[38.90,16.30],[40.85,14.27],[41.90,12.50],[44.49,11.34],[44.63,11.47]],
+    countries:"Algeria, Tunisia, Italy" },
+  { name:"GreenStream", status:"suspended", capacity:"8 bcm/yr", length:"520 km", detail:"Libya to Sicily. Suspended due to Libyan instability.", year:2004,
+    coords:[[29.50,10.30],[32.89,12.30],[33.00,12.40],[35.00,13.30],[37.07,14.25]],
+    countries:"Libya, Italy" },
+  { name:"EastMed Pipeline", status:"proposed", capacity:"10 bcm/yr (planned)", length:"1,900 km", detail:"Proposed: Israel/Cyprus to Italy via Greece. Shelved - technical/political challenges.", year:null,
+    coords:[[33.10,34.10],[33.65,32.98],[34.70,33.35],[34.50,30.00],[34.80,26.00],[35.20,25.70],[36.50,23.00],[39.50,20.30],[40.00,19.00],[40.15,18.49]],
+    countries:"Israel, Cyprus, Greece, Italy" },
+  { name:"Balticconnector", status:"active", capacity:"2.6 bcm/yr", length:"152 km", detail:"Finland-Estonia subsea. Repaired Apr 2024 after anchor damage.", year:2019,
+    coords:[[60.05,24.00],[60.14,24.23],[59.70,24.03],[59.35,24.05],[59.33,24.67]],
+    countries:"Finland, Estonia" },
+];
+
+const oilPipelines = [
+  { name:"Druzhba - Northern Branch", status:"shut", capacity:"~700k bpd", length:"~3,500 km", detail:"Russia to Poland/Germany. Poland & Germany stopped imports since 2023.", year:1964,
+    coords:[[54.75,52.32],[53.19,50.10],[53.25,34.37],[52.85,32.68],[52.05,29.26],[52.10,23.70],[52.55,19.70],[52.34,14.55],[53.06,14.28]],
+    countries:"Russia, Belarus, Poland, Germany" },
+  { name:"Druzhba - Northern (Leuna spur)", status:"shut", capacity:"part of Druzhba", length:"~200 km", detail:"Spur to Leuna refinery in eastern Germany.", year:1964,
+    coords:[[52.34,14.55],[51.32,12.02]],
+    countries:"Germany" },
+  { name:"Druzhba - Southern Branch", status:"active", capacity:"~700k bpd", length:"~2,500 km", detail:"Still active under EU sanctions exemption. Supplies Hungary, Slovakia, Czech Republic.", year:1964,
+    coords:[[52.05,29.26],[51.50,28.80],[50.08,25.15],[48.62,22.30],[48.68,22.08],[48.15,17.11],[48.14,16.50]],
+    countries:"Belarus, Ukraine, Slovakia, Austria" },
+  { name:"Druzhba - Hungary spur", status:"active", capacity:"part of Druzhba", length:"~300 km", detail:"Southern branch spur to Hungarian refineries.", year:1964,
+    coords:[[48.74,19.15],[48.05,19.08],[47.32,18.92]],
+    countries:"Slovakia, Hungary" },
+  { name:"Druzhba - Czech Republic spur", status:"active", capacity:"part of Druzhba", length:"~400 km", detail:"Southern branch spur to Czech refineries.", year:1964,
+    coords:[[48.15,17.11],[49.20,16.61],[50.24,14.31],[50.60,13.58]],
+    countries:"Slovakia, Czech Republic" },
+  { name:"Norpipe Oil Pipeline", status:"active", capacity:"830k bpd", length:"354 km", detail:"Ekofisk field to Teesside, UK. First Norwegian export pipeline.", year:1975,
+    coords:[[56.55,3.21],[56.30,2.50],[55.50,1.00],[54.62,-1.16]],
+    countries:"Norway (offshore), UK" },
+  { name:"CPC Pipeline", status:"active", capacity:"1.34M bpd", length:"1,510 km", detail:"Kazakhstan crude to Black Sea. Subject to attacks in 2026.", year:2001,
+    coords:[[46.15,53.35],[47.10,51.92],[47.50,51.00],[46.35,48.04],[45.80,45.00],[45.50,43.00],[45.44,40.58],[45.04,38.98],[44.72,37.78]],
+    countries:"Kazakhstan, Russia" },
+  { name:"BTC Pipeline", status:"active", capacity:"1.2M bpd", length:"1,768 km", detail:"Major Caspian crude export route to Mediterranean.", year:2006,
+    coords:[[40.18,49.47],[40.04,48.93],[40.34,48.15],[40.62,47.15],[40.61,46.79],[41.00,45.63],[41.12,45.45],[41.15,45.10],[41.69,44.80],[41.84,43.53],[41.51,43.33],[39.91,41.27],[39.75,39.49],[39.75,37.01],[38.73,35.49],[37.00,35.32],[36.87,35.95]],
+    countries:"Azerbaijan, Georgia, Turkey" },
+  { name:"Odesa-Brody Pipeline", status:"limited", capacity:"240k bpd", length:"674 km", detail:"Ukraine internal. Proposed as Druzhba alternative.", year:2002,
+    coords:[[46.60,31.00],[46.48,30.73],[48.75,30.22],[49.23,28.47],[49.42,26.99],[50.08,25.15]],
+    countries:"Ukraine" },
+  { name:"TAL Pipeline (Transalpine)", status:"active", capacity:"800k bpd", length:"753 km", detail:"Trieste to Germany. Supplies 90% of Austria's crude.", year:1967,
+    coords:[[45.65,13.77],[46.51,13.59],[46.61,13.85],[46.53,14.30],[47.07,15.44],[47.38,15.09],[47.80,13.05],[48.17,12.83],[48.78,11.45],[48.80,11.77],[49.02,8.40]],
+    countries:"Italy, Austria, Germany" },
+  { name:"TAL - AWP spur (to Austria/Czech)", status:"active", capacity:"part of TAL", length:"~350 km", detail:"Schwechat refinery (Vienna) to Czech Republic.", year:1967,
+    coords:[[47.38,15.09],[48.14,16.50],[48.85,17.13],[50.24,14.31]],
+    countries:"Austria, Czech Republic" },
+];
+
+const fields = [
+  { name:"Troll Field", country:"Norway", type:"gas_and_oil", lat:60.64, lng:3.72, production:"Gas: ~36 bcm/yr, Oil: ~30k bpd", reserves:"1,325 bcm gas", status:"active", year:1979, note:"Largest North Sea gas field. Critical for European supply." },
+  { name:"Johan Sverdrup", country:"Norway", type:"oil", lat:58.90, lng:2.50, production:"~620k bpd (2026)", reserves:"2.7 billion barrels", status:"active", year:2010, note:"Largest Norwegian discovery since 1980s. Powered by hydroelectricity." },
+  { name:"Ekofisk Field", country:"Norway", type:"oil_and_gas", lat:56.55, lng:3.21, production:"~160k bpd oil+gas", reserves:"~3.2 billion barrels OE (original)", status:"active", year:1969, note:"First commercial discovery on Norwegian shelf. Connects to Norpipe." },
+  { name:"Statfjord Field", country:"Norway/UK", type:"oil_and_gas", lat:61.25, lng:1.85, production:"~20k bpd (late life)", reserves:"~5.3 billion barrels OE (original)", status:"late_life", year:1974, note:"Peaked at 850k bpd in 1987. Now primarily gas." },
+  { name:"Groningen Gas Field", country:"Netherlands", type:"gas", lat:53.33, lng:6.75, production:"Closed Oct 2024", reserves:"2,740 bcm (original) - largest in Europe", status:"closed", year:1959, note:"Permanently closed due to earthquake risk. Shaped EU gas standards." },
+  { name:"Forties Oil Field", country:"UK", type:"oil", lat:57.73, lng:0.97, production:"~30k bpd (declining)", reserves:"~4.2 billion barrels (original)", status:"active", year:1970, note:"One of largest UK North Sea fields." },
+  { name:"Brent Oil Field", country:"UK", type:"oil_and_gas", lat:61.05, lng:1.72, production:"Ceased 2011", reserves:"~4 billion barrels OE (original)", status:"decommissioning", year:1971, note:"Namesake of Brent crude benchmark. Decommissioning underway." },
+  { name:"Neptun Deep", country:"Romania", type:"gas", lat:43.88, lng:30.72, production:"Expected: 8 bcm/yr from 2027", reserves:"42-84 bcm", status:"development", year:2012, note:"Romania's largest offshore project. Could make Romania net gas exporter." },
+  { name:"Ana/Doina Fields", country:"Romania", type:"gas", lat:44.20, lng:30.50, production:"~1 bcm/yr", reserves:"Moderate", status:"active", year:1995, note:"First new Black Sea gas project in Romania." },
+  { name:"Urengoy Gas Field", country:"Russia", type:"gas", lat:65.97, lng:78.37, production:"~230 bcm/yr", reserves:"10,200 bcm (original)", status:"active", year:1966, note:"Third-largest natural gas field in the world. Source of Brotherhood pipeline." },
+  { name:"Yamburg Gas Field", country:"Russia", type:"gas", lat:68.00, lng:75.50, production:"~170 bcm/yr", reserves:"8,200 bcm (original)", status:"active", year:1969, note:"Major West Siberian gas field feeding Yamal-Europe and Brotherhood systems." },
+  { name:"Bovanenkovo Gas Field", country:"Russia", type:"gas", lat:70.36, lng:68.39, production:"~115 bcm/yr", reserves:"4,900 bcm", status:"active", year:2012, note:"Yamal Peninsula mega-field. Key source for Yamal-Europe pipeline." },
+  { name:"Shah Deniz Field", country:"Azerbaijan", type:"gas", lat:40.18, lng:49.47, production:"~24 bcm/yr (Phase 2)", reserves:"1,200 bcm", status:"active", year:1999, note:"Source of Southern Gas Corridor. Feeds SCP, TANAP, and TAP pipelines." },
+  { name:"Hassi R'Mel Gas Field", country:"Algeria", type:"gas", lat:32.93, lng:3.28, production:"~83 bcm/yr", reserves:"2,400 bcm remaining", status:"active", year:1956, note:"Largest gas field in Africa. Source of Transmed and Medgaz pipelines to Europe." },
+  { name:"Ormen Lange Field", country:"Norway", type:"gas", lat:62.83, lng:6.56, production:"~18 bcm/yr", reserves:"395 bcm", status:"active", year:2007, note:"Deepwater gas field. Source of Langeled pipeline to UK." },
+  { name:"Sleipner Field", country:"Norway", type:"gas_and_oil", lat:58.37, lng:1.91, production:"~8 bcm/yr gas", reserves:"Moderate", status:"active", year:1993, note:"Pioneer of carbon capture and storage. Feeds Langeled via Nyhamna." },
+  { name:"Tengiz Oil Field", country:"Kazakhstan", type:"oil", lat:46.15, lng:53.35, production:"~600k bpd", reserves:"6-9 billion barrels", status:"active", year:1979, note:"Giant oil field. Primary source for CPC pipeline to Novorossiysk." },
+  { name:"Leviathan Gas Field", country:"Israel", type:"gas", lat:33.10, lng:34.10, production:"~12 bcm/yr", reserves:"605 bcm", status:"active", year:2010, note:"Largest deepwater gas discovery in the Mediterranean. Proposed source for EastMed pipeline." },
+  { name:"Aphrodite Gas Field", country:"Cyprus", type:"gas", lat:34.00, lng:33.10, production:"Pre-development", reserves:"128 bcm", status:"development", year:2011, note:"Major Cypriot offshore gas discovery. Part of East Mediterranean gas province." },
+  { name:"Wafa/El Feel Oil Field", country:"Libya", type:"oil_and_gas", lat:29.50, lng:10.30, production:"Suspended", reserves:"Moderate", status:"suspended", year:2004, note:"Source field for GreenStream pipeline to Sicily." },
+];
+
+const lngTerminals = [
+  { name:"South Hook LNG", country:"UK (Wales)", lat:51.69, lng:-5.06, capacity:"21 bcm/yr", status:"active", year:2009, operator:"QatarEnergy/ExxonMobil" },
+  { name:"Dragon LNG", country:"UK (Wales)", lat:51.68, lng:-5.02, capacity:"7.6 bcm/yr", status:"active", year:2009, operator:"Shell" },
+  { name:"Grain LNG", country:"UK", lat:51.45, lng:0.72, capacity:"19.5 bcm/yr", status:"active", year:2005, operator:"National Grid" },
+  { name:"Gate LNG (Rotterdam)", country:"Netherlands", lat:51.95, lng:4.14, capacity:"16 bcm/yr", status:"active", year:2011, operator:"Gasunie/Vopak" },
+  { name:"Zeebrugge LNG", country:"Belgium", lat:51.33, lng:3.18, capacity:"9 bcm/yr", status:"active", year:1987, operator:"Fluxys" },
+  { name:"Dunkerque LNG", country:"France", lat:51.04, lng:2.16, capacity:"13 bcm/yr", status:"active", year:2017, operator:"TotalEnergies" },
+  { name:"Fos-sur-Mer LNG", country:"France", lat:43.40, lng:4.93, capacity:"16.5 bcm/yr", status:"active", year:1972, operator:"Elengy/Engie" },
+  { name:"Barcelona LNG", country:"Spain", lat:41.35, lng:2.15, capacity:"17 bcm/yr", status:"active", year:1969, operator:"Enagas" },
+  { name:"Huelva LNG", country:"Spain", lat:37.26, lng:-6.95, capacity:"11.8 bcm/yr", status:"active", year:1988, operator:"Enagas" },
+  { name:"Cartagena LNG", country:"Spain", lat:37.58, lng:-0.96, capacity:"11.8 bcm/yr", status:"active", year:1989, operator:"Enagas" },
+  { name:"Bilbao LNG", country:"Spain", lat:43.35, lng:-3.05, capacity:"7 bcm/yr", status:"active", year:2003, operator:"BBG" },
+  { name:"Sines LNG", country:"Portugal", lat:37.93, lng:-8.87, capacity:"7.6 bcm/yr", status:"active", year:2003, operator:"REN Atlantico" },
+  { name:"Panigaglia LNG", country:"Italy", lat:44.07, lng:9.83, capacity:"3.5 bcm/yr", status:"active", year:1971, operator:"Snam" },
+  { name:"Adriatic LNG (Rovigo)", country:"Italy", lat:45.09, lng:12.60, capacity:"8 bcm/yr", status:"active", year:2009, operator:"ExxonMobil/QatarEnergy" },
+  { name:"OLT Toscana FSRU", country:"Italy", lat:43.37, lng:10.12, capacity:"3.75 bcm/yr", status:"active", year:2013, operator:"OLT" },
+  { name:"Piombino FSRU", country:"Italy", lat:42.93, lng:10.52, capacity:"5 bcm/yr", status:"active", year:2023, operator:"Snam" },
+  { name:"Ravenna FSRU", country:"Italy", lat:44.38, lng:12.50, capacity:"5 bcm/yr", status:"active", year:2024, operator:"Snam" },
+  { name:"Revithoussa LNG", country:"Greece", lat:37.93, lng:23.52, capacity:"7 bcm/yr", status:"active", year:2000, operator:"DESFA" },
+  { name:"Alexandroupolis FSRU", country:"Greece", lat:40.80, lng:26.00, capacity:"5.5 bcm/yr", status:"active", year:2023, operator:"Gastrade" },
+  { name:"Klaipeda FSRU", country:"Lithuania", lat:55.72, lng:21.13, capacity:"4 bcm/yr", status:"active", year:2014, operator:"KN Energies" },
+  { name:"Swinoujscie LNG", country:"Poland", lat:53.92, lng:14.26, capacity:"6.2 bcm/yr", status:"active", year:2016, operator:"Polskie LNG" },
+  { name:"Inkoo FSRU", country:"Finland", lat:60.05, lng:24.00, capacity:"4.2 bcm/yr", status:"active", year:2023, operator:"Gasgrid Finland" },
+  { name:"Krk LNG", country:"Croatia", lat:45.22, lng:14.55, capacity:"2.9 bcm/yr", status:"active", year:2021, operator:"LNG Croatia" },
+  { name:"Wilhelmshaven FSRU", country:"Germany", lat:53.51, lng:8.14, capacity:"5 bcm/yr", status:"active", year:2022, operator:"Uniper", note:"Germany's first LNG terminal, fast-tracked post-2022" },
+  { name:"Brunsbuttel FSRU", country:"Germany", lat:53.89, lng:9.14, capacity:"5 bcm/yr", status:"active", year:2023, operator:"RWE" },
+  { name:"Lubmin FSRU", country:"Germany", lat:54.14, lng:13.67, capacity:"5.2 bcm/yr", status:"active", year:2023, operator:"Deutsche ReGas", note:"Near former Nord Stream landfall" },
+  { name:"Stade FSRU", country:"Germany", lat:53.60, lng:9.47, capacity:"5 bcm/yr", status:"active", year:2024, operator:"Hanseatic Energy Hub" },
+];
+
+const gasHubs = [
+  { name:"Baumgarten Hub", country:"Austria", lat:48.34, lng:16.95, note:"Central European Gas Hub (CEGH). Junction for Brotherhood system." },
+  { name:"Zeebrugge Hub", country:"Belgium", lat:51.33, lng:3.20, note:"Major trading hub. LNG terminal + Interconnector to UK." },
+  { name:"TTF (virtual)", country:"Netherlands", lat:52.37, lng:4.90, note:"Europe's benchmark gas pricing hub." },
+  { name:"NBP (virtual)", country:"UK", lat:51.51, lng:-0.12, note:"National Balancing Point. UK's gas trading hub." },
+  { name:"Mallnow", country:"Germany", lat:52.46, lng:14.50, note:"Yamal-Europe entry point to Germany." },
+  { name:"Waidhaus", country:"Germany", lat:49.64, lng:12.50, note:"Czech-German gas interconnection. MEGAL pipeline." },
+  { name:"Velke Kapusany", country:"Slovakia", lat:48.68, lng:22.08, note:"Ukraine-Slovakia border point. Brotherhood system." },
+  { name:"Tarvisio", country:"Italy", lat:46.51, lng:13.59, note:"Austria-Italy gas border point. TAG pipeline." },
+  { name:"Dornum", country:"Germany", lat:53.65, lng:7.28, note:"Europipe I & II landing point from Norway." },
+  { name:"St. Fergus", country:"UK", lat:57.58, lng:-1.83, note:"Major North Sea gas landing terminal." },
+  { name:"Bacton", country:"UK", lat:52.86, lng:1.53, note:"Hub for BBL, Interconnector, and North Sea pipelines." },
+  { name:"Easington", country:"UK", lat:53.65, lng:0.11, note:"Langeled pipeline landing terminal." },
+];
+
+// ======================== LAYERS ========================
+
+const layers = {
+  gasPipes: L.layerGroup(),
+  oilPipes: L.layerGroup(),
+  fields: L.layerGroup(),
+  lng: L.layerGroup(),
+  hubs: L.layerGroup()
+};
+
+function getStatusClass(s) {
+  if (s === 'active' || s === 'late_life') return 'status-active';
+  if (s === 'damaged') return 'status-damaged';
+  if (s === 'shut' || s === 'closed' || s === 'decommissioning') return 'status-shut';
+  if (s === 'limited' || s === 'suspended') return 'status-limited';
+  if (s === 'proposed') return 'status-proposed';
+  if (s === 'development') return 'status-dev';
+  return 'status-active';
+}
+function getStatusLabel(s) {
+  const m = { active:'Active', damaged:'Damaged', shut:'Shut down', limited:'Limited', suspended:'Suspended', proposed:'Proposed', closed:'Closed', decommissioning:'Decommissioning', late_life:'Late life', development:'In development' };
+  return m[s] || s;
+}
+
+function getPipeColor(type, status) {
+  if (type === 'gas') {
+    if (status === 'damaged' || status === 'shut') return '#3366aa';
+    if (status === 'proposed') return '#6666aa';
+    if (status === 'suspended' || status === 'limited') return '#5599cc';
+    return '#00aaff';
+  } else {
+    if (status === 'shut') return '#884422';
+    if (status === 'limited') return '#cc7733';
+    return '#ff6b00';
+  }
+}
+function getPipeOpacity(status) {
+  if (status === 'damaged' || status === 'shut') return 0.35;
+  if (status === 'proposed') return 0.25;
+  if (status === 'limited' || status === 'suspended') return 0.5;
+  return 0.8;
+}
+function getPipeDash(status) {
+  if (status === 'proposed') return '4, 8';
+  if (status === 'damaged') return '6, 6';
+  return null;
+}
+
+function pipePopup(p, type) {
+  return `
+    <div class="popup-title" style="color:${type==='gas'?'#00aaff':'#ff6b00'}">${p.name}</div>
+    <div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">${type==='gas'?'Natural Gas':'Crude Oil'}</span></div>
+    <div class="popup-row"><span class="popup-label">Status</span><span class="popup-value"><span class="${getStatusClass(p.status)} status-badge">${getStatusLabel(p.status)}</span></span></div>
+    <div class="popup-divider"></div>
+    <div class="popup-row"><span class="popup-label">Capacity</span><span class="popup-value">${p.capacity}</span></div>
+    <div class="popup-row"><span class="popup-label">Length</span><span class="popup-value">${p.length}</span></div>
+    <div class="popup-row"><span class="popup-label">Countries</span><span class="popup-value" style="font-size:10px;max-width:160px;text-align:right;">${p.countries}</span></div>
+    ${p.year ? `<div class="popup-row"><span class="popup-label">Commissioned</span><span class="popup-value">${p.year}</span></div>` : ''}
+    <div class="popup-divider"></div>
+    <div class="popup-note">${p.detail}</div>
+  `;
+}
+
+// Create pipeline lines with tooltips and fat hit lines
+function addPipeline(p, type, layerGroup) {
+  const tt = `<b>${p.name}</b><br><span style="color:#aaa">${p.capacity} · ${p.length}</span><br><span style="color:#888;font-size:10px">${p.detail.substring(0,120)}…</span>`;
+  // Visible line (non-interactive)
+  const visLine = L.polyline(p.coords, {
+    color: getPipeColor(type, p.status),
+    weight: (type === 'gas' && p.status === 'proposed') ? 1.5 : 2.5,
+    opacity: getPipeOpacity(p.status),
+    dashArray: getPipeDash(p.status),
+    interactive: false,
+    _data: p, _pipeType: type
+  });
+  // Invisible fat hit line for hover/click
+  const hitLine = L.polyline(p.coords, {
+    weight: 15,
+    opacity: 0,
+    _data: p, _pipeType: type
+  });
+  hitLine.bindTooltip(tt, { sticky: true, className: 'pipe-tt', direction: 'top', offset: [0, -8] });
+  hitLine.bindPopup(pipePopup(p, type), { maxWidth: 300 });
+  hitLine.on('click', () => updateSidebar(p, 'pipe'));
+  visLine.addTo(layerGroup);
+  hitLine.addTo(layerGroup);
+}
+
+gasPipelines.forEach(p => addPipeline(p, 'gas', layers.gasPipes));
+oilPipelines.forEach(p => addPipeline(p, 'oil', layers.oilPipes));
+
+// Create field markers
+fields.forEach(f => {
+  const size = f.status === 'closed' || f.status === 'decommissioning' ? 14 : 18;
+  const cls = f.type;
+  const anim = (f.status !== 'closed' && f.status !== 'decommissioning') ? ' animated' : '';
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="pulse-marker ${cls}${anim}" style="width:${size}px;height:${size}px;${f.status==='closed'?'opacity:0.4;':''}"></div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2]
+  });
+  const m = L.marker([f.lat, f.lng], { icon, _data: f });
+  m.bindPopup(`
+    <div class="popup-title" style="color:${f.type.includes('oil')?'#ff6b00':f.type.includes('gas')?'#00aaff':'#aa44ff'}">${f.name}</div>
+    <div class="popup-row"><span class="popup-label">Country</span><span class="popup-value">${f.country}</span></div>
+    <div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">${f.type.replace(/_/g,' ')}</span></div>
+    <div class="popup-row"><span class="popup-label">Status</span><span class="popup-value"><span class="${getStatusClass(f.status)} status-badge">${getStatusLabel(f.status)}</span></span></div>
+    <div class="popup-divider"></div>
+    <div class="popup-row"><span class="popup-label">Production</span><span class="popup-value" style="font-size:11px;max-width:160px;text-align:right;">${f.production}</span></div>
+    <div class="popup-row"><span class="popup-label">Reserves</span><span class="popup-value" style="font-size:11px;max-width:160px;text-align:right;">${f.reserves}</span></div>
+    <div class="popup-row"><span class="popup-label">Discovered</span><span class="popup-value">${f.year}</span></div>
+    <div class="popup-divider"></div>
+    <div class="popup-note">${f.note}</div>
+  `, { maxWidth: 300 });
+  m.on('click', () => updateSidebar(f, 'field'));
+  m.addTo(layers.fields);
+});
+
+// Create LNG markers
+lngTerminals.forEach(t => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="pulse-marker lng animated" style="width:12px;height:12px;"></div>`,
+    iconSize: [12, 12], iconAnchor: [6, 6]
+  });
+  const m = L.marker([t.lat, t.lng], { icon, _data: t });
+  m.bindPopup(`
+    <div class="popup-title" style="color:#00cc66">${t.name}</div>
+    <div class="popup-row"><span class="popup-label">Country</span><span class="popup-value">${t.country}</span></div>
+    <div class="popup-row"><span class="popup-label">Status</span><span class="popup-value"><span class="${getStatusClass(t.status)} status-badge">${getStatusLabel(t.status)}</span></span></div>
+    <div class="popup-divider"></div>
+    <div class="popup-row"><span class="popup-label">Capacity</span><span class="popup-value">${t.capacity}</span></div>
+    <div class="popup-row"><span class="popup-label">Operator</span><span class="popup-value" style="font-size:11px;">${t.operator}</span></div>
+    <div class="popup-row"><span class="popup-label">Commissioned</span><span class="popup-value">${t.year}</span></div>
+    ${t.note ? `<div class="popup-note">${t.note}</div>` : ''}
+  `, { maxWidth: 280 });
+  m.addTo(layers.lng);
+});
+
+// Create hub markers
+gasHubs.forEach(h => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="pulse-marker hub" style="width:10px;height:10px;"></div>`,
+    iconSize: [10, 10], iconAnchor: [5, 5]
+  });
+  const m = L.marker([h.lat, h.lng], { icon });
+  m.bindPopup(`
+    <div class="popup-title" style="color:#ffdd00">${h.name}</div>
+    <div class="popup-row"><span class="popup-label">Country</span><span class="popup-value">${h.country}</span></div>
+    <div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">Gas Hub / Metering</span></div>
+    <div class="popup-divider"></div>
+    <div class="popup-note">${h.note}</div>
+  `, { maxWidth: 260 });
+  m.addTo(layers.hubs);
+});
+
+// Add all layers
+Object.values(layers).forEach(l => l.addTo(map));
+
+// ======================== FILTERS ========================
+
+function setFilter(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const show = { gasPipes:true, oilPipes:true, fields:true, lng:true, hubs:true };
+
+  if (filter === 'gas_pipes') { show.oilPipes=false; show.fields=false; show.lng=false; show.hubs=false; }
+  else if (filter === 'oil_pipes') { show.gasPipes=false; show.fields=false; show.lng=false; show.hubs=false; }
+  else if (filter === 'fields') { show.gasPipes=false; show.oilPipes=false; show.lng=false; show.hubs=false; }
+  else if (filter === 'lng') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.hubs=false; }
+  else if (filter === 'hubs') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.lng=false; }
+  else if (filter === 'active_only') {
+    // Show all layers but filter within
+    Object.values(layers).forEach(l => map.addLayer(l));
+    filterByStatus('active');
+    return;
+  } else if (filter === 'damaged') {
+    Object.values(layers).forEach(l => map.addLayer(l));
+    filterByStatus('damaged');
+    return;
+  }
+
+  // Reset status filter
+  resetStatusFilter();
+
+  Object.entries(layers).forEach(([k, l]) => {
+    if (show[k]) map.addLayer(l);
+    else map.removeLayer(l);
+  });
+}
+
+function filterByStatus(mode) {
+  // Gas pipelines (skip hit lines which have interactive !== false check inverted: hit lines have no interactive:false)
+  layers.gasPipes.eachLayer(line => {
+    if (line.options.interactive === false) {
+      const d = line.options._data;
+      if (mode === 'active') {
+        line.setStyle({ opacity: d.status === 'active' ? 0.8 : 0.05 });
+      } else {
+        line.setStyle({ opacity: (d.status === 'damaged' || d.status === 'shut' || d.status === 'suspended') ? 0.8 : 0.05 });
+      }
+    }
+  });
+  layers.oilPipes.eachLayer(line => {
+    if (line.options.interactive === false) {
+      const d = line.options._data;
+      if (mode === 'active') {
+        line.setStyle({ opacity: d.status === 'active' ? 0.8 : 0.05 });
+      } else {
+        line.setStyle({ opacity: (d.status === 'shut' || d.status === 'limited') ? 0.8 : 0.05 });
+      }
+    }
+  });
+}
+
+function resetStatusFilter() {
+  layers.gasPipes.eachLayer(line => {
+    if (line.options.interactive === false) {
+      const d = line.options._data;
+      line.setStyle({ opacity: getPipeOpacity(d.status) });
+    }
+  });
+  layers.oilPipes.eachLayer(line => {
+    if (line.options.interactive === false) {
+      const d = line.options._data;
+      line.setStyle({ opacity: getPipeOpacity(d.status) });
+    }
+  });
+}
+
+// ======================== SIDEBAR UPDATE ========================
+
+function updateSidebar(item, type) {
+  const el = document.getElementById('sel');
+  if (type === 'pipe') {
+    el.innerHTML = `
+      <div style="font-weight:700;color:#fff;margin-bottom:4px;">${item.name}</div>
+      <div style="color:#888;">Capacity: ${item.capacity}</div>
+      <div style="color:#888;">Length: ${item.length}</div>
+      <div style="color:#888;">Countries: ${item.countries}</div>
+      ${item.year ? `<div style="color:#888;">Commissioned: ${item.year}</div>` : ''}
+      <div style="margin-top:4px;"><span class="${getStatusClass(item.status)} status-badge">${getStatusLabel(item.status)}</span></div>
+      <div style="margin-top:4px;color:#777;font-size:10px;">${item.detail}</div>
+    `;
+  } else if (type === 'field') {
+    el.innerHTML = `
+      <div style="font-weight:700;color:#fff;margin-bottom:4px;">${item.name}</div>
+      <div style="color:#888;">${item.country}</div>
+      <div>Production: ${item.production}</div>
+      <div>Reserves: ${item.reserves}</div>
+      <div><span class="${getStatusClass(item.status)} status-badge">${getStatusLabel(item.status)}</span></div>
+    `;
+  }
+}
+
+// ======================== ANIMATED DASH FLOW ========================
+
+let dashOffset = 0;
+function animateDashes() {
+  dashOffset -= 0.4;
+  layers.gasPipes.eachLayer(line => {
+    if (line.options.interactive !== false) return; // only visible lines
+    const d = line.options._data;
+    if (d.status === 'active') {
+      const el = line.getElement();
+      if (el) el.style.strokeDasharray = '8, 6';
+      if (el) el.style.strokeDashoffset = dashOffset;
+    }
+  });
+  layers.oilPipes.eachLayer(line => {
+    if (line.options.interactive !== false) return; // only visible lines
+    const d = line.options._data;
+    if (d.status === 'active') {
+      const el = line.getElement();
+      if (el) el.style.strokeDasharray = '8, 6';
+      if (el) el.style.strokeDashoffset = dashOffset;
+    }
+  });
+  requestAnimationFrame(animateDashes);
+}
+requestAnimationFrame(animateDashes);
+</script>
+</body>
+</html>
