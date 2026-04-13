@@ -48,10 +48,28 @@
   .pd{border-top:1px solid #333;margin:5px 0}
   .pn{font-size:11px;color:#aaa;margin-top:4px;line-height:1.4}
   #info::-webkit-scrollbar{width:4px}#info::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
+  .mob-toggle{display:none;position:absolute;z-index:1001;background:rgba(10,10,20,.85);border:1px solid #444;color:#ccc;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;transition:all .2s}
+  .mob-toggle:hover{border-color:#fff;color:#fff}
+  #mob-info-btn{top:10px;right:10px}
+  #mob-lgd-btn{top:10px;right:80px}
+  @media(max-width:768px){
+    #ttl{left:10px;right:10px;transform:none;padding:8px 12px}
+    #ttl h1{font-size:13px}
+    #ttl p{font-size:10px}
+    #flt{top:auto;bottom:10px;left:10px;right:10px;transform:none;max-width:100%;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding:6px;background:rgba(10,10,20,.85);border-radius:10px;border:1px solid #333;gap:4px;-webkit-overflow-scrolling:touch}
+    .fb{font-size:10px;padding:3px 10px;flex-shrink:0}
+    #info{display:none;top:auto;bottom:50px;right:10px;left:10px;width:auto;max-height:50vh}
+    #info.mob-show{display:block}
+    #lgd{display:none;bottom:50px;left:10px;right:auto;max-width:200px}
+    #lgd.mob-show{display:block}
+    .mob-toggle{display:block}
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<button class="mob-toggle" id="mob-info-btn" onclick="document.getElementById('info').classList.toggle('mob-show');document.getElementById('lgd').classList.remove('mob-show')">&#9432; Info</button>
+<button class="mob-toggle" id="mob-lgd-btn" onclick="document.getElementById('lgd').classList.toggle('mob-show');document.getElementById('info').classList.remove('mob-show')">&#9733; Legend</button>
 <div class="pnl" id="ttl"><h1>Africa Oil & Gas Infrastructure</h1><p>Pipelines, fields, LNG export terminals | Data as of April 2026</p></div>
 <div id="flt">
   <button class="fb on" onclick="sf('all',this)">All</button>
