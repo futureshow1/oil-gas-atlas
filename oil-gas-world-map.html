@@ -76,6 +76,7 @@
     .home-btn{padding:6px 10px;font-size:11px}
     .mob-toggle{display:block}
   }
+.basemap-dark{filter:brightness(.62) saturate(.8)}
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"></head>
 <body>
@@ -119,7 +120,9 @@
 <script>
 const map=L.map('map',{center:[20,15],zoom:3,minZoom:2,maxZoom:10,zoomControl:false});
 L.control.zoom({position:'bottomright'}).addTo(map);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OSM &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+map.createPane('labels');map.getPane('labels').style.zIndex=250;map.getPane('labels').style.pointerEvents='none';
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{attribution:'&copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',maxZoom:19,maxNativeZoom:16,className:'basemap-dark'}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,maxNativeZoom:16,pane:'labels'}).addTo(map);
 
 let curRegion=null;
 const regionViews={Europe:[50,15,4],Asia:[30,65,4],"N.America":[42,-95,4],"S.America":[-15,-58,4],Africa:[5,20,4],Oceania:[-22,135,4]};
