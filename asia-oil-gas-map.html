@@ -361,5 +361,6 @@ let dOff=0;
   [layers.gp,layers.op].forEach(ly=>{ly.eachLayer(l=>{if(l.options&&l.options._d){const d=l.options._d;if(d.s==='active'){const e=l.getElement();if(e){e.style.strokeDasharray='8,6';e.style.strokeDashoffset=dOff}}}})});
   requestAnimationFrame(anim)})();
 </script>
+<script src="https://futureshow.pl/assets/fs-home.js" data-bottom="50" defer></script>
 </body>
 </html>
