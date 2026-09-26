@@ -320,6 +320,13 @@ footer a:hover{text-decoration:underline}
   .world-row{flex-direction:column;text-align:center}
   footer{flex-direction:column;gap:12px;text-align:center;padding:30px 20px}
 }
+  .src-block{margin-top:26px}
+  .src-block h4{font-size:15px;font-weight:600;margin:0 0 8px;color:var(--dark)}
+  .src-block p{margin:0 0 8px;line-height:1.65;color:var(--warm)}
+  .src-block ul{margin:0;padding-left:18px;line-height:1.8;color:var(--warm)}
+  .src-block li{margin-bottom:3px}
+  .src-block a{color:var(--oil);text-decoration:none;border-bottom:1px solid rgba(200,75,0,.35)}
+  .src-block a:hover{border-color:var(--oil)}
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><script data-goatcounter="https://futureshow.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
@@ -331,7 +338,8 @@ footer a:hover{text-decoration:underline}
   <nav>
     <a href="#maps">Maps</a>
     <a href="#about">About</a>
-    <a href="https://github.com/futureshow1/oil-gas-atlas" target="_blank">Source</a>
+      <a href="#sources">Sources</a>
+    <a href="https://github.com/futureshow1/oil-gas-atlas" target="_blank">Code</a>
   </nav>
 </header>
 
@@ -691,10 +699,56 @@ footer a:hover{text-decoration:underline}
   </div>
 </section>
 
+<!-- ====== SOURCES ====== -->
+<section class="about" id="sources">
+  <h2>Sources &amp; data</h2>
+  <p class="intro">
+    Where every layer of this atlas comes from — and where you can check the numbers yourself.
+  </p>
+
+  <div class="src-block">
+    <h4>Base map &amp; technology</h4>
+    <ul>
+      <li><a href="https://www.esri.com/en-us/legal/terms/data-attributions" target="_blank" rel="noopener">Esri World Dark Gray Canvas</a> — basemap tiles (Esri, HERE, Garmin)</li>
+      <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> — underlying geographic data, ODbL</li>
+      <li><a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet 1.9.4</a> — map rendering library, BSD-2-Clause</li>
+    </ul>
+  </div>
+
+  <div class="src-block">
+    <h4>Infrastructure data</h4>
+    <p>Pipelines, fields and LNG terminals were compiled by hand from public industry and agency
+    reporting, reflecting the situation in early 2026. Capacities, production rates and reserve
+    estimates are approximate and pipeline routes are simplified: the atlas is built to show how the
+    system fits together, not to support investment or engineering decisions.</p>
+  </div>
+
+  <div class="src-block">
+    <h4>Where to verify the numbers</h4>
+    <p>These public datasets track the same objects and are the fastest way to check or update any
+    figure shown here:</p>
+    <ul>
+      <li><a href="https://globalenergymonitor.org/projects/" target="_blank" rel="noopener">Global Energy Monitor</a> — open trackers for oil &amp; gas pipelines, LNG terminals and extraction projects</li>
+      <li><a href="https://www.eia.gov/international/data/world" target="_blank" rel="noopener">U.S. Energy Information Administration</a> — production, reserves and trade by country</li>
+      <li><a href="https://www.iea.org/data-and-statistics" target="_blank" rel="noopener">International Energy Agency</a> — energy balances and market reports</li>
+      <li><a href="https://www.gie.eu/transparency/databases/" target="_blank" rel="noopener">Gas Infrastructure Europe</a> — European LNG and storage databases</li>
+      <li><a href="https://www.entsog.eu/maps" target="_blank" rel="noopener">ENTSOG</a> — European gas transmission capacity maps</li>
+    </ul>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Spotted an error?</strong> Corrections are welcome — write to
+    <a href="mailto:futureshow@proton.me">futureshow@proton.me</a> or open an issue on
+    <a href="https://github.com/futureshow1/oil-gas-atlas" target="_blank" rel="noopener">GitHub</a>.
+  </div>
+</section>
+
 <!-- ====== FOOTER ====== -->
 <footer>
   <div>Global Oil & Gas Infrastructure Atlas &middot; Open Source</div>
   <div>
+    <a href="#sources">Sources &amp; data</a>
+    &nbsp;&middot;&nbsp;
     <a href="https://github.com/futureshow1/oil-gas-atlas" target="_blank">GitHub</a>
     &nbsp;&middot;&nbsp;
     April 2026
