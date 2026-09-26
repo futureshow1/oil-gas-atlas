@@ -15,6 +15,8 @@
   .pm.oil{background:radial-gradient(circle,#ff6b00,#cc3300);border:2px solid #ff9944;box-shadow:0 0 10px rgba(255,107,0,.5)}
   .pm.gas{background:radial-gradient(circle,#00aaff,#0055cc);border:2px solid #44ccff;box-shadow:0 0 10px rgba(0,170,255,.5)}
   .pm.mix{background:radial-gradient(circle,#aa44ff,#6600aa);border:2px solid #cc77ff;box-shadow:0 0 10px rgba(170,68,255,.5)}
+  .pm.choke{background:radial-gradient(circle,#ffcc44,#cc8800);border:2px solid #ffe08a;box-shadow:0 0 12px rgba(255,204,68,.55);transform:rotate(45deg);border-radius:3px}
+  .pm.choke.warn{background:radial-gradient(circle,#ff7043,#b23c17);border-color:#ff9f80;box-shadow:0 0 12px rgba(255,112,67,.6)}
   .pm.lng{background:radial-gradient(circle,#00cc66,#008844);border:2px solid #44ee88;box-shadow:0 0 10px rgba(0,204,102,.5)}
   .pm.lngi{background:radial-gradient(circle,#00cc66,#006633);border:2px solid #44ee88;box-shadow:0 0 8px rgba(0,204,102,.3)}
   .pm.shale{background:radial-gradient(circle,#cc8833,#885500);border:2px solid #ddaa44;box-shadow:0 0 10px rgba(204,136,51,.5)}
@@ -91,6 +93,7 @@
   <button class="fb" onclick="sf('pipes',this)">Pipelines</button>
   <button class="fb" onclick="sf('fields',this)">Fields</button>
   <button class="fb" onclick="sf('lng',this)">LNG</button>
+      <button class="fb" onclick="sf('choke',this)">Chokepoints</button>
   <span style="width:8px"></span>
   <button class="fb rg" onclick="zr('Europe',this)">Europe</button>
   <button class="fb rg" onclick="zr('Asia',this)">Asia</button>
@@ -104,6 +107,7 @@
   <div class="st"><span class="sl">Pipelines</span><span class="sv" style="color:#00aaff">120+</span></div>
   <div class="st"><span class="sl">Fields & Basins</span><span class="sv" style="color:#ff6b00">140+</span></div>
   <div class="st"><span class="sl">LNG Terminals</span><span class="sv" style="color:#00cc66">110+</span></div>
+  <div class="st"><span class="sl">Chokepoints</span><span class="sv" style="color:#ffcc44">10</span></div>
   <div class="st"><span class="sl">Continents</span><span class="sv" style="color:#aa44ff">6</span></div>
   <div style="margin-top:12px"><h2>Selected</h2><div id="sel" style="font-size:11px;color:#666;padding:6px 0">Click any element for details</div></div>
 
@@ -121,6 +125,8 @@
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#00aaff,#0055cc);border:1px solid #44ccff"></div> Gas Field</div>
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#aa44ff,#6600aa);border:1px solid #cc77ff"></div> Oil+Gas</div>
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#008844);border:1px solid #44ee88"></div> LNG Terminal</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ffcc44,#cc8800);border:1px solid #ffe08a;transform:rotate(45deg);border-radius:2px"></div> Chokepoint</div>
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ff7043,#b23c17);border:1px solid #ff9f80;transform:rotate(45deg);border-radius:2px"></div> Chokepoint disrupted</div>
 </div>
 
 <script>
@@ -736,21 +742,62 @@ euLNG.forEach(l=>{
   m.addTo(L_lng);
 });
 
-[L_pipes,L_fields,L_lng].forEach(l=>l.addTo(map));
+
+/* ── Maritime chokepoints ────────────────────────────────────────────
+   Flows are approximate orders of magnitude, not measurements; see the
+   "Sources & data" section on the landing page.                        */
+const chokes=[
+ {n:"Strait of Hormuz",c:"Iran / Oman / UAE",lat:26.57,lng:56.25,f:"~20 million bpd of oil, plus about a fifth of world LNG",s:"active",
+  d:"The single most important oil chokepoint. Almost everything the Gulf exports passes through shipping lanes two miles wide in each direction. Only two pipelines bypass it: Petroline and Habshan–Fujairah."},
+ {n:"Strait of Malacca",c:"Malaysia / Indonesia / Singapore",lat:2.50,lng:101.30,f:"~23 million bpd",s:"active",
+  d:"The artery from the Gulf to China, Japan and South Korea. Near Singapore it narrows to under two miles; Sunda and Lombok are the only realistic alternatives."},
+ {n:"Bab el-Mandeb",c:"Yemen / Djibouti / Eritrea",lat:12.58,lng:43.33,f:"~6–7 million bpd before 2024, much lower since",s:"disrupted",
+  d:"The gate between the Red Sea and the Gulf of Aden, and the only approach to Suez from the east. After attacks on shipping from late 2023, a large share of tankers was rerouted around the Cape of Good Hope."},
+ {n:"Suez Canal & SUMED pipeline",c:"Egypt",lat:30.00,lng:32.55,f:"~9 million bpd, canal and pipeline combined",s:"active",
+  d:"The link between the Red Sea and the Mediterranean. SUMED carries the crude that cannot transit the canal fully laden. The 2021 Ever Given grounding showed how fast one blockage spreads through the system."},
+ {n:"Turkish Straits (Bosporus & Dardanelles)",c:"Türkiye",lat:41.12,lng:29.08,f:"~3 million bpd",s:"active",
+  d:"Russian and Kazakh crude leaving Black Sea ports for the Mediterranean. The Bosporus narrows to about half a mile and runs straight through Istanbul."},
+ {n:"Danish Straits",c:"Denmark / Sweden",lat:55.70,lng:12.70,f:"~3 million bpd",s:"active",
+  d:"The Baltic exit for crude loaded at Primorsk and Ust-Luga."},
+ {n:"Panama Canal",c:"Panama",lat:9.08,lng:-79.68,f:"~1 million bpd, mostly refined products and LPG",s:"constrained",
+  d:"The shortcut from the US Gulf Coast to Asia. Drought cut daily transits in 2023–24 and pushed cargoes around Cape Horn or through Suez."},
+ {n:"Cape of Good Hope",c:"South Africa",lat:-34.35,lng:18.47,f:"~5–6 million bpd, rising since 2024",s:"active",
+  d:"Not a narrow passage but the fallback whenever the Red Sea closes — at the cost of roughly ten extra days between the Gulf and Europe."},
+ {n:"Strait of Gibraltar",c:"Spain / Morocco",lat:35.95,lng:-5.60,f:"the only sea entrance to the Mediterranean",s:"active",
+  d:"About eight miles wide at its narrowest, carrying Atlantic crude and LNG into southern Europe."},
+ {n:"Lombok & Sunda Straits",c:"Indonesia",lat:-8.65,lng:115.85,f:"the deep-water alternative to Malacca",s:"active",
+  d:"Used by the largest tankers that cannot pass Malacca fully laden, at the price of several extra days at sea."}
+];
+
+const L_choke=L.layerGroup();
+chokes.forEach(k=>{
+  const cls = k.s==='active' ? 'choke' : 'choke warn';
+  const icon=L.divIcon({className:'',html:`<div class="pm ${cls} a" style="width:15px;height:15px"></div>`,iconSize:[15,15],iconAnchor:[7,7]});
+  const m=L.marker([k.lat,k.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:#ffcc44">${k.n}</div>`+
+    `<div class="pr"><span class="pl">Type</span><span class="pv">Maritime chokepoint</span></div>`+
+    `<div class="pr"><span class="pl">Where</span><span class="pv">${k.c}</span></div>`+
+    `<div class="pr"><span class="pl">Flow</span><span class="pv">${k.f}</span></div>`+
+    `<div class="pr"><span class="pl">Status</span><span class="pv">${k.s}</span></div>`+
+    `<div class="pn">${k.d}</div>`,{maxWidth:280});
+  m.addTo(L_choke);
+});
+[L_pipes,L_fields,L_lng,L_choke].forEach(l=>l.addTo(map));
 
 function sf(f,b){
   document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
   curRegion=null;
-  [L_pipes,L_fields,L_lng].forEach(l=>map.removeLayer(l));
+  [L_pipes,L_fields,L_lng,L_choke].forEach(l=>map.removeLayer(l));
   if(f==='all'||f==='pipes') map.addLayer(L_pipes);
   if(f==='all'||f==='fields') map.addLayer(L_fields);
   if(f==='all'||f==='lng') map.addLayer(L_lng);
+  if(f==='all'||f==='choke') map.addLayer(L_choke);
 }
 
 function zr(region,b){
   document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
   curRegion=region;
-  [L_pipes,L_fields,L_lng].forEach(l=>{map.addLayer(l)});
+  [L_pipes,L_fields,L_lng,L_choke].forEach(l=>{map.addLayer(l)});
   // Zoom to region
   const v=regionViews[region];
   if(v) map.setView([v[0],v[1]],v[2]);
