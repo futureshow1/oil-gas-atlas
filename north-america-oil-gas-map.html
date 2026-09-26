@@ -67,6 +67,7 @@
   <button class="fb" onclick="sf('gas_p',this)">Gas Pipelines</button>
   <button class="fb" onclick="sf('fields',this)">Fields</button>
   <button class="fb" onclick="sf('lng',this)">LNG</button>
+      <button class="fb" onclick="sf('choke',this)">Chokepoints</button>
   <button class="fb" onclick="sf('permian',this)">Permian Focus</button>
 </div>
 <div class="pnl" id="info">
@@ -101,6 +102,8 @@
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#996633,#664422);border:1px solid #cc8844"></div> Oil Sands</div>
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#ff4488,#cc2266);border:1px solid #ff66aa"></div> LNG Export</div>
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#008844);border:1px solid #44ee88"></div> LNG Import</div>
+
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ffcc44,#cc8800);border:1px solid #ffe08a;transform:rotate(45deg);border-radius:2px"></div> Chokepoint</div>
 </div>
 <script>
 const map=L.map('map',{center:[42,-95],zoom:4,minZoom:3,maxZoom:10,zoomControl:false});
@@ -281,16 +284,35 @@ fields.forEach(f=>{
     <div class="pn">${l.d}</div>`,{maxWidth:280}).addTo(L_lng);
 });
 
-[L_op,L_gp,L_fld,L_lng].forEach(l=>l.addTo(map));
+
+/* Maritime chokepoints — flows are approximate orders of magnitude; see Sources & data */
+const chokes=[
+ {n:"Panama Canal",c:"Panama",lat:9.08,lng:-79.68,f:"~1 million bpd, mostly refined products and LPG",s:"constrained",d:"The shortcut from the US Gulf Coast to Asia. Drought cut the number of daily transits in 2023–24, pushing cargoes around Cape Horn or through Suez."},
+ {n:"Strait of Juan de Fuca",c:"Canada / United States",lat:48.30,lng:-124.00,f:"Trans Mountain export route",s:"active",d:"The only sea exit for Vancouver-area oil terminals, including the expanded Trans Mountain pipeline."}
+];
+const L_choke=L.layerGroup();
+chokes.forEach(k=>{
+  const icon=L.divIcon({className:'',html:`<div class="pm choke${k.s==='active'?'':' warn'} a" style="width:15px;height:15px"></div>`,iconSize:[15,15],iconAnchor:[7,7]});
+  const m=L.marker([k.lat,k.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:#ffcc44">${k.n}</div>`+
+    `<div class="pr"><span class="pl">Type</span><span class="pv">Maritime chokepoint</span></div>`+
+    `<div class="pr"><span class="pl">Where</span><span class="pv">${k.c}</span></div>`+
+    `<div class="pr"><span class="pl">Flow</span><span class="pv">${k.f}</span></div>`+
+    `<div class="pr"><span class="pl">Status</span><span class="pv">${k.s}</span></div>`+
+    `<div class="pn">${k.d}</div>`,{maxWidth:280});
+  m.addTo(L_choke);
+});
+[L_op,L_gp,L_fld,L_lng,L_choke].forEach(l=>l.addTo(map));
 
 function sf(f,b){
   document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-  [L_op,L_gp,L_fld,L_lng].forEach(l=>map.removeLayer(l));
-  if(f==='all'){[L_op,L_gp,L_fld,L_lng].forEach(l=>map.addLayer(l))}
+  [L_op,L_gp,L_fld,L_lng,L_choke].forEach(l=>map.removeLayer(l));
+  if(f==='all'){[L_op,L_gp,L_fld,L_lng,L_choke].forEach(l=>map.addLayer(l))}
   else if(f==='oil_p') map.addLayer(L_op);
   else if(f==='gas_p') map.addLayer(L_gp);
   else if(f==='fields') map.addLayer(L_fld);
   else if(f==='lng') map.addLayer(L_lng);
+  else if(f==='choke') map.addLayer(L_choke);
   else if(f==='permian'){[L_op,L_gp,L_fld,L_lng].forEach(l=>map.addLayer(l));map.setView([30,-99],6)}
 }
 

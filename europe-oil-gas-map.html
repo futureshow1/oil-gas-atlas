@@ -87,7 +87,9 @@
     .mob-toggle{display:block}
   }
 .basemap-dark{filter:brightness(.62) saturate(.8)}
-</style>
+.pm.choke{background:radial-gradient(circle,#ffcc44,#cc8800);border:2px solid #ffe08a;box-shadow:0 0 12px rgba(255,204,68,.55);transform:rotate(45deg);border-radius:3px}
+    .pm.choke.warn{background:radial-gradient(circle,#ff7043,#b23c17);border-color:#ff9f80}
+    </style>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><script data-goatcounter="https://futureshow.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
@@ -108,6 +110,7 @@
   <button class="filter-btn" onclick="setFilter('fields',this)">Fields</button>
   <button class="filter-btn" onclick="setFilter('lng',this)">LNG Terminals</button>
   <button class="filter-btn" onclick="setFilter('hubs',this)">Gas Hubs</button>
+      <button class="filter-btn" onclick="setFilter('chokes',this)">Chokepoints</button>
   <button class="filter-btn" onclick="setFilter('active_only',this)">Active Only</button>
   <button class="filter-btn" onclick="setFilter('damaged',this)">Damaged/Shut</button>
 </div>
@@ -151,6 +154,8 @@
   <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#aa44ff,#6600aa); border:1px solid #cc77ff;"></div> Oil+Gas Field</div>
   <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#00cc66,#008844); border:1px solid #44ee88;"></div> LNG Terminal</div>
   <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#ffdd00,#cc9900); border:1px solid #ffee44;"></div> Gas Hub</div>
+
+  <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#ffcc44,#cc8800);border:1px solid #ffe08a;transform:rotate(45deg);border-radius:2px"></div> Chokepoint</div>
 </div>
 
 <script>
@@ -348,7 +353,8 @@ const layers = {
   oilPipes: L.layerGroup(),
   fields: L.layerGroup(),
   lng: L.layerGroup(),
-  hubs: L.layerGroup()
+  hubs: L.layerGroup(),
+  chokes: L.layerGroup()
 };
 
 function getStatusClass(s) {
@@ -499,6 +505,28 @@ gasHubs.forEach(h => {
 });
 
 // Add all layers
+
+/* Maritime chokepoints — flows are approximate orders of magnitude; see Sources & data */
+const chokes = [
+ {n:"Turkish Straits (Bosporus & Dardanelles)",c:"Türkiye",lat:41.12,lng:29.08,f:"~3 million bpd",s:"active",
+  d:"Russian and Kazakh crude leaving Black Sea ports for the Mediterranean. The Bosporus narrows to about half a mile and runs through Istanbul."},
+ {n:"Danish Straits",c:"Denmark / Sweden",lat:55.70,lng:12.70,f:"~3 million bpd",s:"active",
+  d:"The Baltic exit for crude loaded at Primorsk and Ust-Luga."},
+ {n:"Strait of Gibraltar",c:"Spain / Morocco",lat:35.95,lng:-5.60,f:"the only sea entrance to the Mediterranean",s:"active",
+  d:"About eight miles wide at its narrowest, carrying Atlantic crude and LNG into southern Europe."},
+ {n:"Suez Canal & SUMED pipeline",c:"Egypt",lat:30.00,lng:32.55,f:"~9 million bpd, canal and pipeline combined",s:"active",
+  d:"Europe's short route to the Gulf. When the Red Sea is impassable, cargoes go around the Cape and arrive some ten days later."}
+];
+chokes.forEach(k => {
+  const icon = L.divIcon({className:'', html:`<div class="pm choke${k.s==='active'?'':' warn'} a" style="width:15px;height:15px"></div>`, iconSize:[15,15], iconAnchor:[7,7]});
+  L.marker([k.lat,k.lng],{icon}).bindPopup(
+    `<div class="popup-title" style="color:#ffcc44">${k.n}</div>`+
+    `<div class="popup-row"><span class="popup-label">Type</span><span class="popup-value">Maritime chokepoint</span></div>`+
+    `<div class="popup-row"><span class="popup-label">Where</span><span class="popup-value">${k.c}</span></div>`+
+    `<div class="popup-row"><span class="popup-label">Flow</span><span class="popup-value">${k.f}</span></div>`+
+    `<div class="popup-note">${k.d}</div>`, {maxWidth:280}
+  ).addTo(layers.chokes);
+});
 Object.values(layers).forEach(l => l.addTo(map));
 
 // ======================== FILTERS ========================
@@ -507,13 +535,14 @@ function setFilter(filter, btn) {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
-  const show = { gasPipes:true, oilPipes:true, fields:true, lng:true, hubs:true };
+  const show = { gasPipes:true, oilPipes:true, fields:true, lng:true, hubs:true, chokes:true };
 
-  if (filter === 'gas_pipes') { show.oilPipes=false; show.fields=false; show.lng=false; show.hubs=false; }
-  else if (filter === 'oil_pipes') { show.gasPipes=false; show.fields=false; show.lng=false; show.hubs=false; }
-  else if (filter === 'fields') { show.gasPipes=false; show.oilPipes=false; show.lng=false; show.hubs=false; }
-  else if (filter === 'lng') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.hubs=false; }
-  else if (filter === 'hubs') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.lng=false; }
+  if (filter === 'gas_pipes') { show.oilPipes=false; show.fields=false; show.lng=false; show.hubs=false; show.chokes=false; }
+  else if (filter === 'oil_pipes') { show.gasPipes=false; show.fields=false; show.lng=false; show.hubs=false; show.chokes=false; }
+  else if (filter === 'fields') { show.gasPipes=false; show.oilPipes=false; show.lng=false; show.hubs=false; show.chokes=false; }
+  else if (filter === 'lng') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.hubs=false; show.chokes=false; }
+  else if (filter === 'chokes') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.lng=false; show.hubs=false; }
+  else if (filter === 'hubs') { show.gasPipes=false; show.oilPipes=false; show.fields=false; show.lng=false; show.chokes=false; }
   else if (filter === 'active_only') {
     // Show all layers but filter within
     Object.values(layers).forEach(l => map.addLayer(l));

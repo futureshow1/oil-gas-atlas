@@ -15,6 +15,8 @@
   .pm.oil{background:radial-gradient(circle,#ff6b00,#cc3300);border:2px solid #ff9944;box-shadow:0 0 10px rgba(255,107,0,.5)}
   .pm.gas{background:radial-gradient(circle,#00aaff,#0055cc);border:2px solid #44ccff;box-shadow:0 0 10px rgba(0,170,255,.5)}
   .pm.mix{background:radial-gradient(circle,#aa44ff,#6600aa);border:2px solid #cc77ff;box-shadow:0 0 10px rgba(170,68,255,.5)}
+  .pm.choke{background:radial-gradient(circle,#ffcc44,#cc8800);border:2px solid #ffe08a;box-shadow:0 0 12px rgba(255,204,68,.55);transform:rotate(45deg);border-radius:3px}
+  .pm.choke.warn{background:radial-gradient(circle,#ff7043,#b23c17);border-color:#ff9f80;box-shadow:0 0 12px rgba(255,112,67,.6)}
   .pm.lng{background:radial-gradient(circle,#00cc66,#008844);border:2px solid #44ee88;box-shadow:0 0 10px rgba(0,204,102,.5)}
   .pm.csg{background:radial-gradient(circle,#ccaa00,#886600);border:2px solid #eedd44;box-shadow:0 0 10px rgba(204,170,0,.5)}
   .pnl{position:absolute;z-index:1000;background:rgba(10,10,20,.93);border:1px solid #333;border-radius:10px;padding:14px 18px;backdrop-filter:blur(8px)}
@@ -78,6 +80,7 @@
   <button class="fb" onclick="sf('pipes',this)">Pipelines</button>
   <button class="fb" onclick="sf('fields',this)">Fields</button>
   <button class="fb" onclick="sf('lng',this)">LNG</button>
+      <button class="fb" onclick="sf('choke',this)">Chokepoints</button>
 </div>
 <div class="pnl" id="info">
   <h2>Oceania/Australia Overview</h2>
@@ -109,6 +112,8 @@
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#aa44ff,#6600aa);border:1px solid #cc77ff"></div> Oil+Gas</div>
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#ccaa00,#886600);border:1px solid #eedd44"></div> Coal Seam Gas</div>
   <div class="li"><div class="ld" style="background:radial-gradient(circle,#00cc66,#008844);border:1px solid #44ee88"></div> LNG Terminal</div>
+
+  <div class="li"><div class="ld" style="background:radial-gradient(circle,#ffcc44,#cc8800);border:1px solid #ffe08a;transform:rotate(45deg);border-radius:2px"></div> Chokepoint</div>
 </div>
 
 <script>
@@ -237,14 +242,34 @@ lngs.forEach(l=>{
   m.addTo(L_lng);
 });
 
-[L_pipes,L_fields,L_lng].forEach(l=>l.addTo(map));
+
+/* Maritime chokepoints — flows are approximate orders of magnitude; see Sources & data */
+const chokes=[
+ {n:"Lombok Strait",c:"Indonesia",lat:-8.65,lng:115.85,f:"the deep-water alternative to Malacca",s:"active",d:"Used by the largest tankers that cannot pass Malacca fully laden, at the price of several extra days at sea."},
+ {n:"Sunda Strait",c:"Indonesia",lat:-5.95,lng:105.90,f:"secondary alternative to Malacca",s:"active",d:"Between Java and Sumatra: shorter than Lombok but shallow and busy."},
+ {n:"Torres Strait",c:"Australia / Papua New Guinea",lat:-9.90,lng:142.50,f:"regional LNG and bulk route",s:"active",d:"The shallow, reef-strewn passage between the Coral Sea and the Arafura Sea, with compulsory pilotage."}
+];
+const L_choke=L.layerGroup();
+chokes.forEach(k=>{
+  const icon=L.divIcon({className:'',html:`<div class="pm choke${k.s==='active'?'':' warn'} a" style="width:15px;height:15px"></div>`,iconSize:[15,15],iconAnchor:[7,7]});
+  const m=L.marker([k.lat,k.lng],{icon});
+  m.bindPopup(`<div class="pt" style="color:#ffcc44">${k.n}</div>`+
+    `<div class="pr"><span class="pl">Type</span><span class="pv">Maritime chokepoint</span></div>`+
+    `<div class="pr"><span class="pl">Where</span><span class="pv">${k.c}</span></div>`+
+    `<div class="pr"><span class="pl">Flow</span><span class="pv">${k.f}</span></div>`+
+    `<div class="pr"><span class="pl">Status</span><span class="pv">${k.s}</span></div>`+
+    `<div class="pn">${k.d}</div>`,{maxWidth:280});
+  m.addTo(L_choke);
+});
+[L_pipes,L_fields,L_lng,L_choke].forEach(l=>l.addTo(map));
 
 function sf(f,b){
   document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-  [L_pipes,L_fields,L_lng].forEach(l=>map.removeLayer(l));
+  [L_pipes,L_fields,L_lng,L_choke].forEach(l=>map.removeLayer(l));
   if(f==='all'||f==='pipes') map.addLayer(L_pipes);
   if(f==='all'||f==='fields') map.addLayer(L_fields);
   if(f==='all'||f==='lng') map.addLayer(L_lng);
+  if(f==='all'||f==='choke') map.addLayer(L_choke);
 }
 
 let dOff=0;
